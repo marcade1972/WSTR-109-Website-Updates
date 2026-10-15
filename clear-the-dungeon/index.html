@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Clear the Dungeon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="author" content="Marcus Draper">
+<meta name="description" content="Play Clear the Dungeon, the solo card game designed by Mark S. Ball, in your browser. Web version by Marcus Draper for deskatur.com.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
@@ -272,6 +274,22 @@ summary { cursor: pointer; font-family: var(--display); font-size: 1.35rem; colo
 .opts input { accent-color: var(--torch); margin-top: 4px; }
 .opts small { display: block; color: var(--muted); font-size: .82rem; }
 
+/* Credits */
+.credits {
+  border-top: 1px solid var(--seam);
+  padding-top: 16px;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  color: var(--muted);
+  font-size: .92rem;
+}
+.credits p { margin: 0; text-wrap: balance; }
+.credits strong { color: var(--parch); font-weight: 700; }
+.credits a { color: var(--torch); text-underline-offset: 3px; }
+.credits a:hover { color: var(--parch); }
+.credits .thanks { font-family: var(--display); font-size: 1.25rem; color: var(--parch); }
+
 @media (max-width: 700px) {
   .table, .foot { grid-template-columns: minmax(0, 1fr); }
   .actions { grid-template-columns: 1fr 1fr; min-width: 0; }
@@ -343,7 +361,7 @@ summary { cursor: pointer; font-family: var(--display); font-size: 1.35rem; colo
           <li>Reserve rule: once per turn you may play the top card of the damage bar as if it were in your hand.</li>
           <li>Slay all twelve monsters to win. Your score is the number of cards still in the power deck.</li>
         </ol>
-        <p>Clear the Dungeon was designed by Mark S. Ball. You can undo any play within the current turn.</p>
+        <p>Clear the Dungeon was designed by Mark S. Ball. This web version was made by Marcus Draper for deskatur.com. You can undo any play within the current turn.</p>
       </div>
     </details>
     <div class="opts">
@@ -352,6 +370,12 @@ summary { cursor: pointer; font-family: var(--display); font-size: 1.35rem; colo
       <label><input type="checkbox" id="optJokers"><span>Jokers in the deck<small>Two wild 10s. Turn off for a harder game.</small></span></label>
     </div>
   </section>
+
+  <footer class="credits">
+    <p class="thanks">With thanks to Mark S. Ball</p>
+    <p><strong>Clear the Dungeon</strong> was created by <strong>Mark S. Ball</strong>, who shares the original rules free on his YouTube channel, Riffle Shuffle &amp; Roll. This web version exists because of his game. All credit for the design goes to him.</p>
+    <p>Web version by <strong>Marcus Draper</strong> for <a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a></p>
+  </footer>
 </div>
 
 <script>
