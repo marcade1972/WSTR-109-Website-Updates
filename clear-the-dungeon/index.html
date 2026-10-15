@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clear the Dungeon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: a torch-lit stone table. Four lairs across the top, your hand and reserve below, the damage bar as a row of seven wounds. */
+:root {
+  color-scheme: dark;
+  --stone: #1a2023;
+  --slab: #232b2f;
+  --slab-2: #2c363a;
+  --seam: #3b484d;
+  --fg: #e8e2d4;
+  --muted: #9aa5a4;
+  --parch: #f0e6cf;
+  --parch-edge: #cdbd98;
+  --ink: #26221d;
+  --blood: #a3302b;
+  --torch: #e3a64c;
+  --torch-dim: rgba(227,166,76,.18);
+  --moss: #86b77f;
+  --moss-dim: rgba(134,183,127,.16);
+  --wound: #c4473f;
+  --back-1: #3d2a26;
+  --back-2: #5a3a31;
+  --display: "Pirata One", "UnifrakturCook", Georgia, serif;
+  --body: "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif;
+  --num: "Alegreya", Georgia, serif;
+}
+html, body { min-height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--stone);
+  background-image:
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(227,166,76,.16), transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 58px, rgba(0,0,0,.18) 58px 60px),
+    repeating-linear-gradient(90deg, transparent 0 118px, rgba(0,0,0,.12) 118px 120px);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.45;
+}
+.wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+  display: grid;
+  gap: 18px;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--torch); outline-offset: 2px; }
+
+/* Header */
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2.3rem, 7vw, 3.6rem);
+  line-height: .9;
+  margin: 0;
+  letter-spacing: .01em;
+  color: var(--parch);
+  text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 24px rgba(227,166,76,.25);
+}
+h1 small { display: block; font-family: var(--body); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-top: 8px; text-shadow: none; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-variant-numeric: tabular-nums; }
+.stat { display: grid; }
+.stat b { font-family: var(--num); font-size: 1.4rem; line-height: 1; color: var(--parch); }
+.stat span { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+/* Message */
+.msg {
+  min-height: 2.9em;
+  padding: 10px 14px;
+  border-left: 3px solid var(--seam);
+  background: rgba(0,0,0,.22);
+  font-size: .98rem;
+}
+.msg.good { border-color: var(--moss); }
+.msg.bad { border-color: var(--wound); }
+
+/* Lairs */
+.lairs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.lair {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 10px;
+  background: linear-gradient(180deg, var(--slab), rgba(35,43,47,.6));
+  border: 1px solid var(--seam);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  min-width: 0;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.lair:disabled { cursor: default; }
+.lair.valid { border-color: var(--moss); box-shadow: 0 0 0 3px var(--moss-dim), 0 0 22px var(--moss-dim); }
+.lair.valid.finish { border-color: var(--torch); box-shadow: 0 0 0 3px var(--torch-dim), 0 0 26px var(--torch-dim); }
+.lair.invalid { opacity: .55; }
+.lair-head { display: flex; justify-content: space-between; gap: 4px; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.stack { position: relative; width: 100%; max-width: 150px; margin: 0 auto; }
+.stack .back {
+  position: absolute; left: 0; right: 0;
+  aspect-ratio: 5 / 7;
+  border-radius: 7px;
+  background: repeating-linear-gradient(45deg, var(--back-1) 0 6px, var(--back-2) 6px 12px);
+  border: 1px solid rgba(0,0,0,.5);
+}
+.stack .card { position: relative; }
+.cleared {
+  aspect-ratio: 5 / 7;
+  width: 100%; max-width: 150px; margin: 0 auto;
+  display: grid; place-items: center;
+  border: 1px dashed var(--seam);
+  border-radius: 7px;
+  font-family: var(--display);
+  font-size: 1.3rem;
+  color: var(--moss);
+}
+
+/* Cards */
+.card {
+  aspect-ratio: 5 / 7;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 7px;
+  background: linear-gradient(160deg, var(--parch), #e5d7b6);
+  border: 1px solid var(--parch-edge);
+  box-shadow: 0 2px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.35);
+  color: var(--ink);
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.card.red { color: var(--blood); }
+.card .cr { position: absolute; top: 5%; left: 7%; font-family: var(--num); font-weight: 700; font-size: max(13px, 17cqi); line-height: .95; display: grid; justify-items: center; }
+.card .cr i { font-style: normal; font-size: .85em; }
+.card .cr.br { top: auto; left: auto; bottom: 5%; right: 7%; transform: rotate(180deg); }
+.card .pip { font-size: 46cqi; line-height: 1; }
+.card.joker { background: linear-gradient(160deg, #efe0c4, #d9c49b); color: #5a3d7a; }
+.card.joker .jk { font-family: var(--display); font-size: 26cqi; line-height: 1; }
+.card.joker .jv { position: absolute; bottom: 7%; font-size: max(10px, 11cqi); letter-spacing: .08em; text-transform: uppercase; }
+
+.card.monster {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(163,48,43,.12), transparent 60%),
+    linear-gradient(160deg, var(--parch), #e1d0aa);
+  grid-template-rows: 1fr auto auto;
+  padding-block: 12cqi 8cqi;
+}
+.card.monster .mletter { font-family: var(--display); font-size: 58cqi; line-height: .8; align-self: center; }
+.card.monster .mname { font-size: max(10px, 12cqi); letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+.card.monster .mpow {
+  position: absolute; top: 5%; right: 6%;
+  font-family: var(--num); font-weight: 700; font-size: max(11px, 14cqi);
+  padding: 1px 5px; border-radius: 99px;
+  background: var(--ink); color: var(--parch);
+}
+.card.monster .msuit { font-size: max(12px, 18cqi); line-height: 1; }
+.lair.hit .card.monster { animation: hit .35s ease; }
+@keyframes hit { 30% { transform: translateX(-4px) rotate(-2deg); } 60% { transform: translateX(4px) rotate(2deg); } }
+.lair.nope { animation: nope .3s ease; }
+@keyframes nope { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+/* Staged slots */
+.slots { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+.slot {
+  display: grid; place-items: center;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px dashed var(--seam);
+  font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
+  min-width: 0;
+}
+.slot.fin { border-color: rgba(227,166,76,.5); color: var(--torch); font-size: 1rem; text-transform: none; }
+.slot.filled { border: 1px solid var(--parch-edge); background: var(--parch); color: var(--ink); font-family: var(--num); font-weight: 700; font-size: .95rem; text-transform: none; letter-spacing: 0; }
+.slot.filled.red { color: var(--blood); }
+.slot.filled.jk { color: #5a3d7a; }
+.tally { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.3em; }
+.tally b { color: var(--fg); }
+.tally .ok { color: var(--moss); }
+
+/* Table bottom */
+.table { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; }
+.panel-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.hand-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.hand { display: flex; gap: 10px; }
+.hcard {
+  width: clamp(70px, 18vw, 104px);
+  padding: 0; border: 0; background: none; cursor: pointer;
+  transition: transform .15s;
+  border-radius: 8px;
+}
+.hcard:hover:not(:disabled) { transform: translateY(-4px); }
+.hcard.sel { transform: translateY(-10px); }
+.hcard.sel .card { box-shadow: 0 0 0 3px var(--torch), 0 10px 22px rgba(0,0,0,.5); }
+.hcard:disabled { cursor: default; }
+.hcard.empty .ghost { aspect-ratio: 5/7; border: 1px dashed var(--seam); border-radius: 7px; }
+.reserve { display: grid; gap: 4px; justify-items: center; padding-left: 12px; border-left: 1px solid var(--seam); }
+.reserve .hcard:disabled .card { filter: grayscale(.7) brightness(.6); }
+.reserve small { font-size: .72rem; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.deal { animation: deal .3s ease both; }
+@keyframes deal { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+
+.actions { display: grid; gap: 8px; min-width: 170px; }
+.btn {
+  padding: 10px 16px;
+  border-radius: 5px;
+  border: 1px solid var(--seam);
+  background: var(--slab-2);
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--torch); border-color: var(--torch); color: #2a1d0b; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--torch); }
+
+/* Damage bar */
+.damage { display: grid; gap: 8px; }
+.dmg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.dmg-head b { font-family: var(--num); font-variant-numeric: tabular-nums; }
+.wounds { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wound {
+  height: 40px;
+  border-radius: 4px;
+  border: 1px dashed var(--seam);
+  display: grid; place-items: center;
+  font-family: var(--num); font-weight: 700; font-size: 1rem;
+  position: relative;
+}
+.wound.f { border: 1px solid var(--parch-edge); background: var(--parch); color: var(--ink); }
+.wound.f.red { color: var(--blood); }
+.wound.f.jk { color: #5a3d7a; }
+.wound.res { box-shadow: 0 0 0 2px var(--torch); }
+.wound:nth-child(n+5) { border-color: rgba(196,71,63,.45); }
+.wound:last-child::after { content: "✕"; position: absolute; font-size: .8rem; color: var(--wound); font-family: var(--body); }
+.wound.f:last-child::after { content: none; }
+
+/* Result */
+.result {
+  padding: 18px 20px;
+  border: 1px solid var(--torch);
+  background: linear-gradient(180deg, rgba(227,166,76,.12), rgba(0,0,0,.2));
+  border-radius: 6px;
+  display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between;
+}
+.result.lost { border-color: var(--wound); background: linear-gradient(180deg, rgba(196,71,63,.14), rgba(0,0,0,.2)); }
+.result h2 { font-family: var(--display); font-weight: 400; font-size: 2rem; margin: 0; line-height: 1; text-wrap: balance; }
+.result p { margin: 4px 0 0; color: var(--muted); }
+
+/* Rules */
+.foot { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+details { border-top: 1px solid var(--seam); padding-top: 10px; }
+summary { cursor: pointer; font-family: var(--display); font-size: 1.35rem; color: var(--parch); }
+.rules { max-width: 65ch; color: var(--fg); }
+.rules ol { padding-left: 1.2em; display: grid; gap: 6px; }
+.rules p { color: var(--muted); }
+.opts { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--seam); }
+.opts label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.opts input { accent-color: var(--torch); margin-top: 4px; }
+.opts small { display: block; color: var(--muted); font-size: .82rem; }
+
+@media (max-width: 700px) {
+  .table, .foot { grid-template-columns: minmax(0, 1fr); }
+  .actions { grid-template-columns: 1fr 1fr; min-width: 0; }
+  .actions .btn.primary { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .lairs { gap: 6px; }
+  .lair { padding: 6px; gap: 6px; }
+  .lair-head span:last-child { display: none; }
+  .slot .lbl { display: none; }
+  .slot { height: 26px; font-size: .58rem; }
+  .slot.filled { font-size: .8rem; }
+  .tally { font-size: .7rem; }
+  .wound { height: 34px; font-size: .85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Clear the Dungeon<small>A solitaire of twelve monsters and one deck</small></h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+  <section class="lairs" id="lairs" aria-label="The dungeon"></section>
+
+  <section id="result" hidden></section>
+
+  <section class="table">
+    <div>
+      <p class="panel-label">Your hand</p>
+      <div class="hand-row">
+        <div class="hand" id="hand"></div>
+        <div class="reserve" id="reserve"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="endTurn" type="button">End turn</button>
+      <button class="btn" id="undo" type="button">Undo</button>
+      <button class="btn" id="newGame" type="button">New game</button>
+    </div>
+  </section>
+
+  <section class="damage" aria-label="Damage bar">
+    <div class="dmg-head">
+      <p class="panel-label" style="margin:0">Damage bar</p>
+      <span id="dmgCount"></span>
+    </div>
+    <div class="wounds" id="wounds"></div>
+  </section>
+
+  <section class="foot">
+    <details id="rulesBox">
+      <summary>How to play</summary>
+      <div class="rules">
+        <ol>
+          <li>The twelve face cards are the monsters, dealt into four lairs of three. Only the top monster of each lair can be fought. Jacks have 11 power, Queens 12, Kings 13.</li>
+          <li>The rest of the deck is your power deck: Aces count 1, number cards their value, and Jokers count 10 and match any suit.</li>
+          <li>Each turn you draw three cards. Pick a card, then pick a lair to play it on that monster.</li>
+          <li>A monster takes exactly three cards. The first two are strikes, and together they must total at least the monster's power. The third is the finishing blow and must match the monster's suit. Its rank does not matter.</li>
+          <li>Cards you play stay on the monster between turns. When the finishing blow lands, the monster is slain and the next one in the lair is revealed.</li>
+          <li>When you end your turn, any cards left in your hand go to the damage bar. If it fills to seven cards, the dungeon wins.</li>
+          <li>Reserve rule: once per turn you may play the top card of the damage bar as if it were in your hand.</li>
+          <li>Slay all twelve monsters to win. Your score is the number of cards still in the power deck.</li>
+        </ol>
+        <p>Clear the Dungeon was designed by Mark S. Ball. You can undo any play within the current turn.</p>
+      </div>
+    </details>
+    <div class="opts">
+      <p class="panel-label" style="margin:0">Options (apply on the next deal)</p>
+      <label><input type="checkbox" id="optReserve"><span>Reserve rule<small>Play the top damage card once per turn.</small></span></label>
+      <label><input type="checkbox" id="optJokers"><span>Jokers in the deck<small>Two wild 10s. Turn off for a harder game.</small></span></label>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const SUITS = { S: "♠", H: "♥", D: "♦", C: "♣" };
+  const SUIT_NAME = { S: "Spades", H: "Hearts", D: "Diamonds", C: "Clubs" };
+  const FACE = { 11: "Jack", 12: "Queen", 13: "King" };
+  const ROMAN = ["I", "II", "III", "IV"];
+  const MAX_DAMAGE = 7;
+  const $ = (id) => document.getElementById(id);
+
+  let S, history = [], selected = null, msg = { text: "", kind: "" }, fx = {};
+  let opts = { reserve: true, jokers: true }, best = null;
+
+  try { const o = JSON.parse(localStorage.getItem("ctd-opts")); if (o) opts = { ...opts, ...o }; } catch (e) {}
+  try { const b = localStorage.getItem("ctd-best"); if (b !== null) best = Number(b); } catch (e) {}
+
+  const rl = (r) => r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r);
+  const val = (c) => c.joker ? 10 : c.rank;
+  const isRed = (c) => c.suit === "H" || c.suit === "D";
+  const label = (c) => c.joker ? "Joker" : rl(c.rank) + SUITS[c.suit];
+  const mname = (m) => FACE[m.rank] + " of " + SUIT_NAME[m.suit];
+  const top = (col) => { const p = S.columns[col]; return p[p.length - 1]; };
+  const remaining = () => S.columns.reduce((n, p) => n + p.length, 0);
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
+  function newGame() {
+    let id = 0;
+    const faces = [], power = [];
+    for (const s of "SHDC") for (let r = 1; r <= 13; r++) (r > 10 ? faces : power).push({ id: id++, rank: r, suit: s });
+    if (opts.jokers) power.push({ id: id++, rank: 0, suit: null, joker: true }, { id: id++, rank: 0, suit: null, joker: true });
+    shuffle(faces); shuffle(power);
+    S = {
+      columns: [0, 1, 2, 3].map((i) => faces.slice(i * 3, i * 3 + 3)),
+      staged: [[], [], [], []],
+      deck: power, hand: [], damage: [], slain: [],
+      turn: 0, reserveUsed: false, status: "playing", reason: "", score: null,
+      reserveOn: opts.reserve,
+    };
+    selected = null;
+    startTurn();
+    setMsg("Pick a card from your hand, then a monster to play it on. Two strikes that meet its power, then a finishing blow in its suit.");
+  }
+
+  function startTurn() {
+    S.turn++;
+    S.reserveUsed = false;
+    S.hand = S.deck.splice(0, 3);
+    history = [];
+    fx.deal = true;
+  }
+
+  const reserveAvailable = () => S.status === "playing" && S.reserveOn && !S.reserveUsed && S.damage.length > 0;
+
+  function getSel() {
+    if (!selected) return null;
+    if (selected.from === "hand") return S.hand[selected.idx] || null;
+    return reserveAvailable() ? S.damage[S.damage.length - 1] : null;
+  }
+
+  function check(c, col) {
+    if (!S.columns[col].length) return { ok: false, why: "That lair is already cleared." };
+    const m = top(col), st = S.staged[col];
+    if (st.length === 0) return { ok: true, kind: "strike" };
+    if (st.length === 1) {
+      const t = val(st[0]) + val(c);
+      return t >= m.rank ? { ok: true, kind: "strike" }
+        : { ok: false, why: `${val(st[0])} + ${val(c)} = ${t}. The ${mname(m)} needs strikes totalling at least ${m.rank}.` };
+    }
+    if (c.joker || c.suit === m.suit) return { ok: true, kind: "finish" };
+    return { ok: false, why: `The ${mname(m)} can only be finished with a ${SUITS[m.suit]} card or a Joker.` };
+  }
+
+  function playable() {
+    const cards = [...S.hand];
+    if (reserveAvailable()) cards.push(S.damage[S.damage.length - 1]);
+    return cards.some((c) => [0, 1, 2, 3].some((col) => check(c, col).ok));
+  }
+
+  function place(col) {
+    if (S.status !== "playing") return;
+    const c = getSel();
+    if (!c) {
+      if (S.columns[col].length) {
+        const m = top(col), st = S.staged[col];
+        setMsg(`${mname(m)}: power ${m.rank}. ` + (st.length < 2 ? "Select a card from your hand first." : `Select a ${SUITS[m.suit]} card or a Joker to finish it.`));
+        render();
+      }
+      return;
+    }
+    const r = check(c, col);
+    if (!r.ok) { setMsg(r.why, "bad"); fx.nope = col; render(); return; }
+    history.push(JSON.stringify(S));
+    if (selected.from === "hand") S.hand.splice(selected.idx, 1);
+    else { S.damage.pop(); S.reserveUsed = true; }
+    selected = null;
+    const m = top(col);
+    if (r.kind === "finish") {
+      S.columns[col].pop();
+      S.slain.push(m, ...S.staged[col], c);
+      S.staged[col] = [];
+      if (remaining() === 0) {
+        S.status = "won";
+        S.score = S.deck.length;
+        if (best === null || S.score > best) { best = S.score; try { localStorage.setItem("ctd-best", String(best)); } catch (e) {} }
+        setMsg(`The ${mname(m)} falls, and the dungeon is clear.`, "good");
+      } else {
+        const next = top(col);
+        setMsg(`The ${mname(m)} falls. ${remaining()} monsters remain.` + (next ? ` The ${mname(next)} steps forward.` : ` Lair ${ROMAN[col]} is cleared.`), "good");
+      }
+    } else {
+      S.staged[col].push(c);
+      fx.hit = col;
+      const st = S.staged[col];
+      if (st.length === 1) setMsg(`${label(c)} strikes the ${mname(m)}. The next strike must bring the total to ${m.rank} or more.`);
+      else setMsg(`Strikes total ${val(st[0]) + val(st[1])}, enough for the ${mname(m)}. Finish it with a ${SUITS[m.suit]} card or a Joker.`);
+    }
+    if (S.status === "playing" && !playable() && (S.hand.length || reserveAvailable())) {
+      msg.text += " No other card can be played. End the turn.";
+    }
+    render();
+  }
+
+  function endTurn() {
+    if (S.status !== "playing") return;
+    const n = S.hand.length;
+    S.damage.push(...S.hand);
+    S.hand = [];
+    selected = null;
+    if (S.damage.length >= MAX_DAMAGE) {
+      S.status = "lost"; S.reason = "The damage bar is full.";
+      setMsg("Seven wounds. The dungeon wins this time.", "bad");
+    } else if (!S.deck.length) {
+      S.status = "lost"; S.reason = "The power deck is spent.";
+      setMsg("No cards left to draw. The dungeon wins this time.", "bad");
+    } else {
+      startTurn();
+      setMsg(n ? `${n} card${n > 1 ? "s" : ""} went to the damage bar. Turn ${S.turn}: you drew ${S.hand.length}.` : `Clean turn. Turn ${S.turn}: you drew ${S.hand.length}.`, n ? "bad" : "good");
+      if (!playable()) msg.text += " None of these can be played; end the turn.";
+    }
+    render();
+  }
+
+  function undo() {
+    if (!history.length || S.status === "lost") return;
+    S = JSON.parse(history.pop());
+    selected = null;
+    setMsg("Took back the last play.");
+    render();
+  }
+
+  function setMsg(text, kind = "") { msg = { text, kind }; }
+
+  function select(from, idx) {
+    if (S.status !== "playing") return;
+    if (selected && selected.from === from && selected.idx === idx) selected = null;
+    else selected = { from, idx };
+    const c = getSel();
+    if (c) {
+      const ok = [0, 1, 2, 3].filter((col) => check(c, col).ok);
+      setMsg(ok.length
+        ? `${label(c)} selected (value ${val(c)}). Highlighted monsters can take it.`
+        : `${label(c)} can't be played on any monster right now.`, ok.length ? "" : "bad");
+    }
+    render();
+  }
+
+  /* ---------- rendering ---------- */
+  function cardHTML(c, extra = "") {
+    if (c.joker) return `<div class="card joker ${extra}"><span class="cr">★</span><span class="jk">Joker</span><span class="jv">wild · 10</span></div>`;
+    const s = SUITS[c.suit], r = rl(c.rank);
+    return `<div class="card ${isRed(c) ? "red" : ""} ${extra}"><span class="cr">${r}<i>${s}</i></span><span class="pip">${s}</span><span class="cr br">${r}<i>${s}</i></span></div>`;
+  }
+  function monsterHTML(m) {
+    return `<div class="card monster ${isRed(m) ? "red" : ""}"><span class="mpow" title="Power">${m.rank}</span><span class="mletter">${rl(m.rank)}</span><span class="msuit">${SUITS[m.suit]}</span><span class="mname">${FACE[m.rank]}</span></div>`;
+  }
+  function chip(c, cls) {
+    if (c.joker) return `<span class="${cls} f jk filled">★</span>`;
+    return `<span class="${cls} f filled ${isRed(c) ? "red" : ""}">${label(c)}</span>`;
+  }
+
+  function render() {
+    const sel = getSel();
+    if (selected && !sel) selected = null;
+
+    $("stats").innerHTML = [
+      ["Turn", S.turn],
+      ["Power deck", S.deck.length],
+      ["Slain", `${12 - remaining()}/12`],
+      ["Best score", best === null ? "–" : best],
+    ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
+
+    const m = $("msg");
+    m.textContent = msg.text;
+    m.className = "msg " + msg.kind;
+
+    $("lairs").innerHTML = S.columns.map((pile, col) => {
+      const head = `<div class="lair-head"><span>Lair ${ROMAN[col]}</span><span>${Math.max(pile.length - 1, 0)} below</span></div>`;
+      if (!pile.length) return `<button class="lair" type="button" disabled data-col="${col}">${head}<div class="cleared">Cleared</div><div class="slots"><span class="slot"></span><span class="slot"></span><span class="slot"></span></div><div class="tally">&nbsp;</div></button>`;
+      const mon = pile[pile.length - 1], st = S.staged[col], below = pile.length - 1;
+      let cls = "lair";
+      if (sel && S.status === "playing") {
+        const r = check(sel, col);
+        cls += r.ok ? " valid" + (r.kind === "finish" ? " finish" : "") : " invalid";
+      }
+      if (fx.hit === col) cls += " hit";
+      if (fx.nope === col) cls += " nope";
+      const backs = Array.from({ length: below }, (_, k) => `<div class="back" style="top:${k * 7}px"></div>`).join("");
+      const slots = [0, 1].map((i) => st[i] ? chip(st[i], "slot") : `<span class="slot"><span class="lbl">strike</span></span>`).join("")
+        + `<span class="slot fin" title="Finish with ${SUIT_NAME[mon.suit]}">${SUITS[mon.suit]}</span>`;
+      let tally;
+      if (st.length === 0) tally = `Strikes ≥ <b>${mon.rank}</b>`;
+      else if (st.length === 1) tally = `<b>${val(st[0])}</b> + ? ≥ ${mon.rank}`;
+      else tally = `<span class="ok">${val(st[0]) + val(st[1])} ≥ ${mon.rank}</span> · finish`;
+      return `<button class="${cls}" type="button" data-col="${col}" aria-label="${mname(mon)}, power ${mon.rank}, ${st.length} of 3 cards played">${head}<div class="stack" style="padding-top:${below * 7}px">${backs}${monsterHTML(mon)}</div><div class="slots">${slots}</div><div class="tally">${tally}</div></button>`;
+    }).join("");
+
+    const dealCls = fx.deal ? "deal" : "";
+    const handSlots = [];
+    for (let i = 0; i < 3; i++) {
+      const c = S.hand[i];
+      if (c) handSlots.push(`<button class="hcard ${selected && selected.from === "hand" && selected.idx === i ? "sel" : ""}" type="button" data-hand="${i}" aria-label="${c.joker ? "Joker" : rl(c.rank) + " of " + SUIT_NAME[c.suit]}" ${S.status !== "playing" ? "disabled" : ""}>${cardHTML(c, dealCls)}</button>`);
+      else handSlots.push(`<div class="hcard empty"><div class="ghost"></div></div>`);
+    }
+    $("hand").innerHTML = handSlots.join("");
+
+    const resTop = S.damage[S.damage.length - 1];
+    let res;
+    if (!S.reserveOn) res = `<div class="hcard empty"><div class="ghost"></div></div><small>Reserve off</small>`;
+    else if (!resTop) res = `<div class="hcard empty"><div class="ghost"></div></div><small>Reserve</small>`;
+    else res = `<button class="hcard ${selected && selected.from === "reserve" ? "sel" : ""}" type="button" data-reserve="1" ${reserveAvailable() ? "" : "disabled"} aria-label="Reserve card">${cardHTML(resTop)}</button><small>${S.reserveUsed ? "Used this turn" : "Reserve"}</small>`;
+    $("reserve").innerHTML = res;
+
+    const et = $("endTurn");
+    et.textContent = S.hand.length ? `End turn (${S.hand.length} to damage)` : "Draw next three";
+    et.disabled = S.status !== "playing";
+    $("undo").disabled = !history.length || S.status !== "playing";
+
+    $("dmgCount").innerHTML = `<b>${Math.min(S.damage.length, MAX_DAMAGE)}</b> / ${MAX_DAMAGE}`;
+    const w = [];
+    for (let i = 0; i < MAX_DAMAGE; i++) {
+      const c = S.damage[i];
+      if (!c) { w.push(`<span class="wound"></span>`); continue; }
+      const isRes = i === S.damage.length - 1 && reserveAvailable();
+      w.push(chip(c, "wound" + (isRes ? " res" : "")).replace(" filled", ""));
+    }
+    $("wounds").innerHTML = w.join("");
+
+    const r = $("result");
+    if (S.status === "won") {
+      r.hidden = false;
+      r.className = "result";
+      r.innerHTML = `<div><h2>The dungeon is clear</h2><p>Score ${S.score}: cards left in your power deck after ${S.turn} turns.${S.score === best ? " A new best." : ""}</p></div><button class="btn primary" type="button" data-again="1">Deal again</button>`;
+    } else if (S.status === "lost") {
+      r.hidden = false;
+      r.className = "result lost";
+      r.innerHTML = `<div><h2>The dungeon wins</h2><p>${S.reason} You slew ${12 - remaining()} of 12 monsters.</p></div><button class="btn primary" type="button" data-again="1">Deal again</button>`;
+    } else {
+      r.hidden = true;
+      r.innerHTML = "";
+    }
+    fx = {};
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-col],[data-hand],[data-reserve],[data-again]");
+    if (!t) return;
+    if (t.dataset.again) { newGame(); render(); return; }
+    if (t.dataset.hand !== undefined) return select("hand", Number(t.dataset.hand));
+    if (t.dataset.reserve) return select("reserve", 0);
+    if (t.dataset.col !== undefined) place(Number(t.dataset.col));
+  });
+  $("endTurn").addEventListener("click", endTurn);
+  $("undo").addEventListener("click", undo);
+  $("newGame").addEventListener("click", () => { newGame(); render(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && selected) { selected = null; render(); }
+    if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); }
+  });
+
+  const optR = $("optReserve"), optJ = $("optJokers");
+  const saveOpts = () => {
+    opts = { reserve: optR.checked, jokers: optJ.checked };
+    try { localStorage.setItem("ctd-opts", JSON.stringify(opts)); } catch (e) {}
+    setMsg("Options saved. They take effect on the next deal.");
+    render();
+  };
+  optR.addEventListener("change", saveOpts);
+  optJ.addEventListener("change", saveOpts);
+
+  function start(data) {
+    optR.checked = opts.reserve;
+    optJ.checked = opts.jokers;
+    if (data && data.S) {
+      S = data.S; history = data.history || []; msg = data.msg || msg;
+    } else {
+      newGame();
+    }
+    render();
+  }
+  window.claude?.hot?.snapshot?.(() => ({ S, history, msg }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
