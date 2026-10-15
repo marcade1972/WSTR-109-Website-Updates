@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Shadow People</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="author" content="Marcus Draper">
+<meta name="description" content="A text adventure inspired by The Shadow People from the radio series Hall of Fantasy. By Marcus Draper for deskatur.com.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+/* Layout: one lamp in a dark house. The story column sits in a pool of warm light that shrinks and cools as the shadows close in; a narrow side panel holds the light meter, what you carry, and the compass. */
+:root {
+  color-scheme: dark;
+  --night: #0c0b0a;
+  --panel: #15130f;
+  --seam: #2a2620;
+  --paper: #e7ddc7;
+  --muted: #918676;
+  --lamp: #f0b45b;
+  --lamp-soft: rgba(240,180,91,.16);
+  --cold: #8ea3b8;
+  --blood: #c4573f;
+  --display: "IM Fell English SC", "IM Fell English", Georgia, serif;
+  --fell: "IM Fell English", Georgia, serif;
+  --body: "Crimson Pro", Georgia, "Times New Roman", serif;
+  --type: "Courier Prime", "Courier New", monospace;
+  --pool: 1;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.55;
+}
+.app {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 12px;
+  box-sizing: border-box;
+  gap: 12px;
+}
+.app::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse calc(40% + 30% * var(--pool)) calc(45% + 35% * var(--pool)) at 38% 55%, rgba(240,180,91, calc(.10 * var(--pool))), transparent 70%);
+  transition: background 1.2s ease;
+  z-index: 0;
+}
+body.dark .app::before { background: radial-gradient(ellipse 30% 30% at 38% 60%, rgba(142,163,184,.05), transparent 70%); }
+.app > * { position: relative; z-index: 1; }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 20px; border-bottom: 1px solid var(--seam); padding-bottom: 10px; }
+.kicker { font-family: var(--type); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 0 0 2px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(1.9rem, 6vw, 2.9rem); line-height: .95; margin: 0; color: var(--paper); text-shadow: 0 0 28px rgba(240,180,91,.25); }
+.status { display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--type); font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status b { color: var(--paper); font-weight: 700; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 18px; min-height: 0; }
+.story { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; gap: 10px; }
+#log {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 6px 14px 18px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--seam) transparent;
+}
+#log .entry { max-width: 68ch; animation: rise .5s ease both; }
+#log p { margin: 0 0 .75em; }
+#log em { font-style: italic; color: #f1e6cc; }
+#log .room { font-family: var(--display); font-size: 1.45rem; color: var(--lamp); margin: 1.1em 0 .25em; line-height: 1.1; }
+body.dark #log .room { color: var(--cold); }
+#log .cmd { font-family: var(--type); font-size: .9rem; color: var(--muted); margin: 1.2em 0 .5em; }
+#log .cmd::before { content: "> "; color: var(--lamp); }
+#log .note { font-family: var(--type); font-size: .82rem; color: var(--lamp); }
+#log .dread { color: var(--cold); font-style: italic; }
+#log .calm { color: var(--muted); font-style: italic; }
+#log .event { border-left: 2px solid var(--lamp); padding-left: 12px; }
+#log .voice { font-family: var(--fell); font-style: italic; color: #d9c7ff; }
+#log .death { border-left: 2px solid var(--blood); padding-left: 12px; }
+#log .end { font-family: var(--display); font-size: 1.3rem; text-align: center; color: var(--lamp); margin: 1em 0; }
+#log .end.lost { color: var(--blood); }
+#log .title { font-family: var(--display); font-size: 1.15rem; color: var(--muted); letter-spacing: .04em; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+
+form.prompt { display: flex; align-items: center; gap: 10px; border: 1px solid var(--seam); background: rgba(0,0,0,.35); border-radius: 4px; padding: 8px 10px; }
+form.prompt:focus-within { border-color: var(--lamp); box-shadow: 0 0 0 3px var(--lamp-soft); }
+form.prompt span { font-family: var(--type); color: var(--lamp); font-weight: 700; }
+#cmd { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--paper); font-family: var(--type); font-size: 1rem; }
+#cmd::placeholder { color: #6c6357; }
+form.prompt button { background: none; border: 1px solid var(--seam); color: var(--muted); font-family: var(--type); font-size: .8rem; border-radius: 3px; padding: 4px 10px; cursor: pointer; }
+
+aside { display: grid; align-content: start; gap: 16px; overflow-y: auto; min-height: 0; padding-bottom: 8px; }
+.box h2 { font-family: var(--type); font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.meter { display: flex; align-items: center; gap: 10px; }
+.bulb { width: 18px; height: 18px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 14px var(--lamp), 0 0 30px rgba(240,180,91,.4); transition: all .6s; flex: none; }
+body.dark .bulb { background: transparent; border: 1px solid var(--cold); box-shadow: none; }
+.meter b { font-family: var(--fell); font-size: 1.1rem; font-weight: 400; }
+.pips { display: flex; gap: 4px; margin-top: 8px; }
+.pip { flex: 1; height: 6px; border-radius: 2px; background: var(--seam); }
+.pip.on { background: var(--cold); box-shadow: 0 0 8px rgba(142,163,184,.5); }
+.pip.on.hot { background: var(--blood); box-shadow: 0 0 8px rgba(196,87,63,.6); }
+.meter-note { font-size: .85rem; color: var(--muted); margin: 6px 0 0; }
+#inv { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: .95rem; }
+#inv li { display: flex; justify-content: space-between; gap: 8px; }
+#inv small { color: var(--lamp); font-family: var(--type); font-size: .72rem; white-space: nowrap; }
+#inv .none { color: var(--muted); font-style: italic; }
+
+.compass { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.qbtn {
+  font-family: var(--type); font-size: .82rem;
+  padding: 8px 4px;
+  background: var(--panel); color: var(--paper);
+  border: 1px solid var(--seam); border-radius: 3px;
+  cursor: pointer;
+}
+.qbtn:hover:not(:disabled) { border-color: var(--lamp); color: var(--lamp); }
+.qbtn:disabled { opacity: .3; cursor: default; }
+.qbtn.c { color: var(--muted); }
+.verbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.credit { font-size: .82rem; color: var(--muted); line-height: 1.4; border-top: 1px solid var(--seam); padding-top: 10px; }
+.credit a { color: var(--lamp); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+@media (max-width: 800px) {
+  body { font-size: 17px; }
+  .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 10px; }
+  aside { overflow: visible; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  aside .box.inv, aside .credit { display: none; }
+  aside .box.light { grid-column: 1 / -1; }
+  .meter-note { display: none; }
+  .pips { margin-top: 0; flex: 1; }
+  .box.light { display: flex; align-items: center; gap: 12px; }
+  .box.light h2 { display: none; }
+  .qbtn { padding: 7px 2px; }
+  #log { padding-right: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div>
+      <p class="kicker">deskatur.com presents</p>
+      <h1>The Shadow People</h1>
+    </div>
+    <div class="status" id="status"></div>
+  </header>
+
+  <div class="main">
+    <section class="story">
+      <div id="log" role="log" aria-live="polite" aria-label="Story"></div>
+      <form class="prompt" id="form" autocomplete="off">
+        <span aria-hidden="true">&gt;</span>
+        <label for="cmd" style="position:absolute;left:-9999px">Command</label>
+        <input id="cmd" type="text" placeholder="What do you do?" autocapitalize="off" spellcheck="false" enterkeyhint="send">
+        <button type="submit">Enter</button>
+      </form>
+    </section>
+
+    <aside>
+      <div class="box light">
+        <h2>Light</h2>
+        <div class="meter"><span class="bulb" aria-hidden="true"></span><b id="lightLabel">Lit</b></div>
+        <div class="pips" id="pips" aria-label="How close the shadows are"></div>
+        <p class="meter-note" id="lightNote"></p>
+      </div>
+      <div class="box">
+        <h2>Move</h2>
+        <div class="compass" id="compass">
+          <button class="qbtn c" type="button" data-cmd="up">Up</button>
+          <button class="qbtn" type="button" data-cmd="north">N</button>
+          <button class="qbtn c" type="button" data-cmd="down">Down</button>
+          <button class="qbtn" type="button" data-cmd="west">W</button>
+          <button class="qbtn c" type="button" data-cmd="look">Look</button>
+          <button class="qbtn" type="button" data-cmd="east">E</button>
+          <span></span>
+          <button class="qbtn" type="button" data-cmd="south">S</button>
+          <span></span>
+        </div>
+      </div>
+      <div class="box">
+        <h2>Act</h2>
+        <div class="verbs">
+          <button class="qbtn" type="button" data-cmd="inventory">Items</button>
+          <button class="qbtn" type="button" data-cmd="wait">Wait</button>
+          <button class="qbtn" type="button" data-cmd="hint">Hint</button>
+          <button class="qbtn" type="button" data-cmd="undo">Undo</button>
+          <button class="qbtn" type="button" data-cmd="save">Save</button>
+          <button class="qbtn" type="button" data-cmd="restore">Load</button>
+        </div>
+      </div>
+      <div class="box inv">
+        <h2>Carrying</h2>
+        <ul id="inv"></ul>
+      </div>
+      <p class="credit">An original interactive adaptation inspired by &ldquo;The Shadow People,&rdquo; an episode of the radio series <em>Hall of Fantasy</em>. Written by <b>Marcus Draper</b> for <a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a>.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* ================= WORLD ================= */
+  const MAX = 50;
+
+  const ROOMS = {
+    library: {
+      name: "The Library", light: "lamp",
+      exits: { e: "hallway" },
+      desc: () => `Books climb three walls to the ceiling, their spines worn dull by years of your father's hands. His reading lamp stands beside the deep leather armchair${S.power && S.on.library ? ", throwing a single pool of yellow light. It is the only light in the whole house, you realise, unless you have switched on others" : ". The lamp is dark"}. A writing desk sits beneath the window, where the rain runs down the glass in ropes. The hallway door is east${isLitRoom("hallway") ? "." : ", and beyond it there is nothing but black."}`,
+    },
+    hallway: {
+      name: "The Hallway", light: "hallSwitch",
+      exits: { w: "library", e: "parlor", n: "dining", u: "landing", s: () => frontDoorExit() },
+      desc: () => `A long hallway with a threadbare runner. The telephone waits on its little table at the foot of the stairs, and the tall clock ticks beside the front door to the south. The library is west, the parlor east, the dining room north. The stairs climb into the dark above.`,
+    },
+    dining: {
+      name: "The Dining Room", light: "chandelier",
+      exits: { s: "hallway", e: "kitchen" },
+      desc: () => `A long table under a dust sheet, the sideboard against one wall, the chandelier hanging overhead like a spider that has stopped to listen. No one has eaten here since the funeral. The hallway is south and the kitchen east.`,
+    },
+    kitchen: {
+      name: "The Kitchen", light: "kitchenLight",
+      exits: { w: "dining", d: () => S.open.cellarDoor ? "cellar" : `The cellar door is shut${S.bolted.cellarDoor ? " and bolted" : ""}.` },
+      desc: () => `A big stone-floored kitchen. The iron range is cold. Pantry shelves line the north wall, and in the far corner a narrow door leads down to the cellar${S.open.cellarDoor ? ". It stands open on a well of black" : S.bolted.cellarDoor ? ". Its bolt is shot home" : ""}. The dining room is west.`,
+    },
+    parlor: {
+      name: "The Parlor", light: "parlorLight",
+      exits: { w: "hallway" },
+      desc: () => `The front parlor, all horsehair and lace, kept for visitors who no longer come. Father's portrait hangs above the cold fireplace. The hallway is west.` +
+        (S.crane === "parlor" ? `\n\nMr. Crane has made a fortress of the place. Candles burn on every flat surface, and a circle of salt rings the sofa, where he sits with his notebook on his knee and an eye on the corners.` : ""),
+    },
+    landing: {
+      name: "The Landing", light: "landingLight",
+      exits: { d: "hallway", n: () => studyExit(), e: "bedroom", w: "fatherRoom" },
+      desc: () => `The upstairs landing. Your bedroom is east and Father's bedroom west. North is the door to his study${S.open.studyDoor ? ", standing open" : S.locked.studyDoor ? ", locked since the funeral" : ", closed"}. The stairs lead down.`,
+    },
+    bedroom: {
+      name: "Your Bedroom", light: "bedLight",
+      exits: { w: "landing" },
+      desc: () => `Your old room, unchanged since you came home for the funeral: a narrow bed, a nightstand, the rain against the window. The landing is west.`,
+    },
+    fatherRoom: {
+      name: "Father's Bedroom", light: "fatherLight",
+      exits: { e: "landing" },
+      desc: () => `It still smells of bay rum and pipe smoke. There is a big walnut wardrobe, a nightstand, and the bed, made up tight by the undertaker's men. The landing is east.`,
+    },
+    study: {
+      name: "Father's Study", light: "studyLight",
+      exits: { s: "landing" },
+      desc: () => `The room where he spent his last months. A rolltop desk under a green-shaded lamp, and papers everywhere: diagrams of lenses, coils of wire sketched in pencil, columns of figures headed CANDLEPOWER. A photograph is pinned above the desk. The landing is south.`,
+    },
+    cellar: {
+      name: "The Cellar", light: "cellarBulb",
+      exits: { u: "kitchen", e: () => S.open.workshopDoor ? "workshop" : "The heavy iron door to the workshop is closed." },
+      desc: () => `Brick walls sweat in the damp. The coal bin slumps in one corner. The fuse box hangs on the wall at the foot of the stairs, and a bare bulb dangles overhead on a pull chain. To the east, a heavy iron door leads to Father's workshop${S.open.workshopDoor ? ". It stands open" : ""}. The stairs lead up.` +
+        (S.saltLine ? `\n\nA thick white line of salt runs across the floor from wall to wall, guarding the stairs and the fuse box.` : ""),
+    },
+    workshop: {
+      name: "The Workshop", light: null,
+      exits: { w: "cellar" },
+      desc: () => `Father's workshop. A workbench heaped with cable, carbon rods and pages of calculations. In the middle of the floor, on an iron stand with wheels, crouches ${S.sheetOff ? "Father's arc lamp: a great brass drum with a lens like a lighthouse eye" : "something tall under a dust sheet, shaped like a searchlight"}.\n\nAnd in the far wall, where the brick has been broken open, there is a seam of darkness that ${S.lampOn ? "even the white beam cannot quite fill" : "your light does not touch at all"}. It is not a shadow. It is a hole that shadows come out of. The cellar is west.`,
+    },
+  };
+
+  // Items. loc = room id, item id (container), "player" or null.
+  const ITEMS = {
+    // Library
+    lamp: { a: "the reading lamp", words: ["lamp", "reading", "light", "switch", "lights"], loc: "library", scenery: true, feel: true, switchFor: "library",
+      desc: () => `A brass reading lamp with a fringed shade. Father read beneath it every night of your life. It is ${on("library")}.` },
+    armchair: { a: "the armchair", words: ["armchair", "chair", "leather"], loc: "library", scenery: true,
+      desc: () => `Deep, cracked leather. It still smells faintly of his pipe tobacco.` },
+    novel: { a: "a novel", words: ["novel", "book"], loc: "library", initial: "A novel lies face-down on the arm of the chair, where you left it.",
+      desc: () => `<em>The Lantern at Greymarsh</em>, a lurid thing from Father's shelves. You had read the same page four times.`,
+      read: () => `You try. The words slide off the page. Every few lines your eyes go back to the doorway.` },
+    libDesk: { a: "the writing desk", words: ["desk", "writing", "inkstand", "blotter"], loc: "library", scenery: true, opens: "libDrawer",
+      desc: () => `Father's writing desk: a blotter, an inkstand, and one shallow drawer, which is ${S.open.libDrawer ? "open" : "closed"}. He kept candle ends in that drawer for storm season, when the power always went.` },
+    libDrawer: { a: "the desk drawer", words: ["drawer", "desk"], loc: "library", scenery: true, container: true, openable: true,
+      desc: () => `A shallow drawer in the writing desk. It is ${S.open.libDrawer ? "open" : "closed"}.` },
+    card: { a: "a calling card", words: ["card", "calling", "business", "crane"], loc: "library", initial: "A calling card is propped against the inkstand on the desk.",
+      desc: () => readCard(), read: () => readCard() },
+    candle: { a: "a candle", words: ["candle", "stub", "wax"], loc: "libDrawer", light: true,
+      desc: () => S.lit.candle ? `A stub of white candle, burning with a small brave flame. ${S.fuel.candle > 20 ? "It has a while left in it." : "It is burning low."}` : S.fuel.candle <= 0 ? "A puddle of cold wax around a blackened wick. It is finished." : "A stub of white candle, about three inches long." },
+    matchbook: { a: "a book of matches", words: ["matches", "matchbook", "match"], loc: "libDrawer",
+      desc: () => `A matchbook from the Hotel Belvedere. ${S.matches ? `${S.matches} match${S.matches > 1 ? "es" : ""} left.` : "It is empty."}` },
+    shelves: { a: "the bookshelves", words: ["shelves", "books", "bookshelves", "bookcase", "spines"], loc: "library", scenery: true,
+      desc: () => `Folklore, travel, chemistry, ghost stories. Father read everything. In his last months he read about only one thing: light.` },
+    libWindow: { a: "the window", words: ["window", "glass", "rain"], loc: "library", scenery: true,
+      desc: () => `Rain, and beyond the rain, nothing. Your own face looks back at you from the glass, pale above your black mourning dress.` },
+
+    // Hallway
+    hallSwitch: { a: "the light switch", words: ["switch", "light", "lights"], loc: "hallway", scenery: true, feel: true, switchFor: "hallway",
+      desc: () => `A round brass switch beside the library door. The hall light is ${on("hallway")}.` },
+    phone: { a: "the telephone", words: ["telephone", "phone", "receiver"], loc: "hallway", scenery: true, feel: true,
+      desc: () => `A black candlestick telephone on its little table.${S.power ? "" : " Since the storm the line has been dead."}` },
+    clock: { a: "the tall clock", words: ["clock", "grandfather", "tall"], loc: "hallway", scenery: true,
+      desc: () => `Father wound it every Sunday. No one has wound it since he died, and yet it is still ticking.` },
+    frontDoor: { a: "the front door", words: ["door", "front", "oak"], loc: "hallway", scenery: true, feel: true,
+      desc: () => S.crane === "knocking" ? `Someone is hammering on it from outside.` : `Heavy oak, bolted for the night. Rain drums against it.` },
+    stairs: { a: "the stairs", words: ["stairs", "staircase", "steps"], loc: "hallway", scenery: true, feel: true,
+      desc: () => `They climb to the landing.` },
+
+    // Dining
+    chandelier: { a: "the chandelier", words: ["chandelier", "light", "switch", "lights"], loc: "dining", scenery: true, feel: true, switchFor: "dining",
+      desc: () => `Brass arms and dusty crystal. It is ${on("dining")}.` },
+    diningTable: { a: "the table", words: ["table", "sheet", "dust"], loc: "dining", scenery: true,
+      desc: () => `The dust sheet hangs over it like a shroud.` },
+    sideboard: { a: "the sideboard", words: ["sideboard", "silver", "decanter", "sherry"], loc: "dining", scenery: true,
+      desc: () => `Silver, table linen, a decanter of Father's sherry. Nothing that will help you tonight.` },
+
+    // Kitchen
+    kitchenLight: { a: "the kitchen light", words: ["light", "switch", "lights", "bulb"], loc: "kitchen", scenery: true, feel: true, switchFor: "kitchen",
+      desc: () => `A switch by the door. The kitchen light is ${on("kitchen")}.` },
+    range: { a: "the range", words: ["range", "stove", "oven"], loc: "kitchen", scenery: true, desc: () => `Cold black iron.` },
+    pantry: { a: "the pantry shelves", words: ["pantry", "shelf", "shelves"], loc: "kitchen", scenery: true, container: true, surface: true,
+      desc: () => `Jars, tins and paper sacks.` },
+    salt: { a: "a box of salt", words: ["salt", "box", "carton"], loc: "pantry", initial: "On the pantry shelf sits a big blue carton of cooking salt.",
+      desc: () => S.saltLine ? `The carton of cooking salt, much lighter now.` : `A heavy carton of cooking salt, nearly full.` },
+    lantern: { a: "a storm lantern", words: ["lantern", "storm", "oil", "hurricane"], loc: "pantry", light: true, initial: "An old storm lantern hangs from a hook beside the shelves.",
+      desc: () => S.lit.lantern ? `The storm lantern, burning steady and bright behind its glass chimney.` : `An oil storm lantern with a glass chimney. The reservoir sloshes; it's full. You'd need a match to light it.` },
+    cellarDoor: { a: "the cellar door", words: ["door", "cellar", "bolt"], loc: "kitchen", scenery: true, feel: true,
+      desc: () => S.open.cellarDoor ? `The cellar door stands open on a well of black.` : S.bolted.cellarDoor ? `A narrow door in the corner. The bolt is shot home. You remember sliding it across the day after the funeral, your hands shaking.` : `A narrow door in the corner, closed. The bolt is drawn back.` },
+
+    // Parlor
+    parlorLight: { a: "the parlor lamps", words: ["lamps", "lamp", "light", "switch", "lights"], loc: "parlor", scenery: true, feel: true, switchFor: "parlor",
+      desc: () => `Two tasselled lamps on a single switch. They are ${on("parlor")}.` },
+    portrait: { a: "the portrait", words: ["portrait", "painting", "picture", "father", "edmund"], loc: "parlor", scenery: true,
+      desc: () => `Father at fifty, painted the year Mother died. The painter caught his kindness and missed his humour. His eyes don't follow you. You check twice.` },
+    fireplace: { a: "the fireplace", words: ["fireplace", "fire", "ashes", "hearth"], loc: "parlor", scenery: true, desc: () => `Cold ashes.` },
+    sofa: { a: "the sofa", words: ["sofa", "couch"], loc: "parlor", scenery: true, desc: () => S.crane === "parlor" ? `Mr. Crane sits on it inside his ring of salt.` : `A horsehair sofa nobody ever sat on.` },
+    crane: { a: "Mr. Crane", words: ["crane", "silas", "man", "mr", "investigator"], loc: null, npc: true,
+      desc: () => `Silas Crane: tall, gaunt and magnificently moustached, his cape still dripping on the carpet. He watches the corners of the room the way a man watches a dog he isn't sure of. (You can ASK CRANE ABOUT something.)` },
+
+    // Landing
+    landingLight: { a: "the landing light", words: ["light", "switch", "lights"], loc: "landing", scenery: true, feel: true, switchFor: "landing",
+      desc: () => `The landing light is ${on("landing")}.` },
+    studyDoor: { a: "the study door", words: ["door", "study"], loc: "landing", scenery: true, feel: true,
+      desc: () => S.open.studyDoor ? `The study door stands open.` : S.locked.studyDoor ? `Locked. Father kept the key on him.` : `Closed but unlocked.` },
+
+    // Bedroom
+    bedLight: { a: "your bedroom light", words: ["light", "switch", "lights"], loc: "bedroom", scenery: true, feel: true, switchFor: "bedroom",
+      desc: () => `The light is ${on("bedroom")}.` },
+    bed: { a: "your bed", words: ["bed"], loc: "bedroom", scenery: true, desc: () => `You haven't slept in it for three nights.` },
+    nightstand: { a: "your nightstand", words: ["nightstand", "drawer", "bedside", "table"], loc: "bedroom", scenery: true, container: true, openable: true,
+      desc: () => `A little nightstand with one drawer, which is ${S.open.nightstand ? "open" : "closed"}.` },
+    flashlight: { a: "a flashlight", words: ["flashlight", "torch", "electric"], loc: "nightstand", light: true,
+      desc: () => S.fuel.flashlight <= 0 ? `A tin flashlight. The batteries are dead.` : `A tin flashlight. ${S.lit.flashlight ? "It throws a thin yellow beam." : "The batteries are old; you wouldn't trust it for long."}` },
+
+    // Father's room
+    fatherLight: { a: "the bedroom light", words: ["light", "switch", "lights"], loc: "fatherRoom", scenery: true, feel: true, switchFor: "fatherRoom",
+      desc: () => `The light is ${on("fatherRoom")}.` },
+    wardrobe: { a: "the wardrobe", words: ["wardrobe", "closet", "walnut"], loc: "fatherRoom", scenery: true, container: true, openable: true,
+      desc: () => `A big walnut wardrobe. It is ${S.open.wardrobe ? "open, and his clothes hang there as if he might come back for them" : "closed"}.` },
+    coat: { a: "Father's overcoat", words: ["coat", "overcoat", "tweed", "pocket", "pockets"], loc: "wardrobe", container: true, hideUntil: "coatSearched",
+      desc: () => { const first = !S.flags.coatSearched; S.flags.coatSearched = true; return `His heavy tweed overcoat. You put your hand in the pocket the way you did when you were small.` + (first && S.loc.key === "coat" ? ` Your fingers close on a brass key.` : ""); } },
+    key: { a: "a brass key", words: ["key", "brass", "study"], loc: "coat",
+      desc: () => `A small brass key. Father's study key.` },
+    fatherNightstand: { a: "his nightstand", words: ["nightstand", "bedside", "table"], loc: "fatherRoom", scenery: true, container: true, surface: true,
+      desc: () => `His reading glasses, folded.` },
+    watch: { a: "Father's pocket watch", words: ["watch", "pocket", "gold", "timepiece"], loc: "fatherNightstand", initial: "His gold pocket watch lies on the nightstand, where the undertaker's man left it.",
+      desc: () => { S.flags.sawWatch = true; return `Heavy gold, still ticking. Inside the lid is the inscription you had engraved for his sixtieth birthday:\n\n<em>For Father, who always left a light on for me. Love, Lainey.</em>\n\nHe never once let you come home to a dark house. Not once, in all your life.`; } },
+    fatherBed: { a: "his bed", words: ["bed"], loc: "fatherRoom", scenery: true, desc: () => `He didn't die in it. He died at the foot of the cellar stairs.` },
+
+    // Study
+    studyLight: { a: "the green lamp", words: ["lamp", "green", "light", "switch", "lights"], loc: "study", scenery: true, feel: true, switchFor: "study",
+      desc: () => `A banker's lamp with a green glass shade. It is ${on("study")}.` },
+    studyDesk: { a: "the rolltop desk", words: ["desk", "rolltop", "papers", "diagrams"], loc: "study", scenery: true, container: true, surface: true, opens: "studyDrawer",
+      desc: () => `Papers in drifts: lens diagrams, coil windings, a sketch of something like a searchlight on a wheeled stand. There is one drawer, which is ${S.open.studyDrawer ? "open" : "closed"}.` },
+    studyDrawer: { a: "the desk drawer", words: ["drawer", "desk"], loc: "study", scenery: true, container: true, openable: true,
+      desc: () => `The desk drawer is ${S.open.studyDrawer ? "open" : "closed"}.` },
+    journal: { a: "Father's journal", words: ["journal", "diary", "notebook", "notes", "book"], loc: "studyDesk", initial: "Father's journal lies open on the desk.",
+      desc: () => `A black notebook filled with his small, careful handwriting. (You could READ it.)`, read: () => readJournal() },
+    fuse: { a: "a spare fuse", words: ["fuse", "spare", "new", "glass"], loc: "studyDrawer",
+      desc: () => `A heavy glass fuse with brass caps, the kind that screws into the main fuse box.` },
+    photo: { a: "the photograph", words: ["photograph", "photo", "picture"], loc: "study", scenery: true,
+      desc: () => `You, aged seven, holding his hand on the beach at Whitby. You're both squinting into the sun.` },
+
+    // Cellar
+    cellarBulb: { a: "the bulb", words: ["bulb", "chain", "cord", "light", "switch", "pull", "lights"], loc: "cellar", scenery: true, feel: true, switchFor: "cellar",
+      desc: () => `A bare bulb on a pull chain. It is ${on("cellar")}.` },
+    fusebox: { a: "the fuse box", words: ["box", "fusebox", "fuse", "panel"], loc: "cellar", scenery: true, container: true, openable: true,
+      desc: () => `A tin box on the wall, with the main fuse inside. It is ${S.open.fusebox ? "open" : "closed"}.` },
+    blownFuse: { a: "a blown fuse", words: ["fuse", "blown", "old", "black", "burnt", "dead"], loc: "fusebox",
+      desc: () => `Blackened inside its glass. The storm's work.` },
+    coalbin: { a: "the coal bin", words: ["coal", "bin"], loc: "cellar", scenery: true, desc: () => `Coal dust and silence.` },
+    workshopDoor: { a: "the iron door", words: ["door", "iron", "workshop", "heavy"], loc: "cellar", scenery: true, feel: true,
+      desc: () => S.open.workshopDoor ? `The iron door stands open.` : `A heavy iron door, cold to the touch. Father fitted it last spring. You never asked why.` },
+
+    // Workshop
+    arcLamp: { a: "the arc lamp", words: ["lamp", "arc", "searchlight", "machine", "light", "stand", "carbon"], loc: "workshop", scenery: true, feel: true,
+      desc: () => S.lampOn ? `The arc lamp roars with white light. Its beam lies across the floor by the bench. It isn't pointing at the seam.` : S.sheetOff ? `A brass drum the size of a barrel, with a lens like a lighthouse eye, on an iron stand with wheels. Cables run from it to a junction box on the wall, and there is a big knife switch on its side.` : `Something tall under a dust sheet.` },
+    sheet: { a: "the dust sheet", words: ["sheet", "dust", "cloth", "cover"], loc: "workshop", scenery: true,
+      desc: () => `A grey dust sheet draped over the machine.` },
+    seam: { a: "the seam", words: ["seam", "crack", "wall", "hole", "darkness", "dark", "chamber", "opening"], loc: "workshop", scenery: true, feel: true,
+      desc: () => `A ragged opening in the brick, no wider than a door. Beyond it is a dark that has nothing to do with the absence of light. Things move in it.` },
+    bench: { a: "the workbench", words: ["bench", "workbench", "cable", "tools", "rods"], loc: "workshop", scenery: true,
+      desc: () => `Coils of cable, carbon rods, and pages of calculations in Father's hand. The last line reads: <em>Aim full upon the seam.</em>` },
+  };
+
+  /* ================= STATE ================= */
+  let S, history = [];
+
+  function fresh() {
+    const loc = {};
+    for (const id in ITEMS) loc[id] = ITEMS[id].loc;
+    return {
+      room: "library", turn: 0, score: 0, scored: {},
+      power: true, on: { library: true }, open: {}, locked: { studyDoor: true }, bolted: { cellarDoor: true },
+      lit: {}, fuel: { candle: 60, flashlight: 30 }, matches: 5,
+      loc, moved: {}, flags: {}, visited: { library: true },
+      dread: 0, callTurn: null, powerOffTurn: null, knockAt: null, crane: "away",
+      saltLine: false, lampOn: false, sheetOff: false, voice: 0, over: null,
+    };
+  }
+
+  /* ================= OUTPUT ================= */
+  const logEl = document.getElementById("log");
+  let out = [];
+  const say = (text, cls = "") => out.push({ text, cls });
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function fmt(text) {
+    // allow our own <em> tags, escape everything else
+    let t = esc(text).replace(/&lt;em&gt;/g, "<em>").replace(/&lt;\/em&gt;/g, "</em>");
+    t = t.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    return t.split(/\n\n/).map((p) => p.replace(/\n/g, "<br>"));
+  }
+  function flush() {
+    if (!out.length) return;
+    const frag = document.createElement("div");
+    frag.className = "entry";
+    for (const o of out) {
+      for (const p of fmt(o.text)) {
+        const el = document.createElement("p");
+        if (o.cls) el.className = o.cls;
+        el.innerHTML = p;
+        frag.appendChild(el);
+      }
+    }
+    logEl.appendChild(frag);
+    while (logEl.children.length > 400) logEl.removeChild(logEl.firstChild);
+    out = [];
+    requestAnimationFrame(() => { logEl.scrollTop = logEl.scrollHeight; });
+  }
+
+  /* ================= HELPERS ================= */
+  const carried = (id) => S.loc[id] === "player";
+  const on = (room) => S.on[room] ? (S.power ? "on" : "switched on, but there is no power") : "off";
+  function carriedLight() { return ["candle", "lantern", "flashlight"].some((id) => carried(id) && S.lit[id]); }
+  function isLitRoom(r) {
+    if (r === "parlor" && S.crane === "parlor") return true;
+    if (r === "workshop" && S.lampOn) return true;
+    return !!(ROOMS[r].light && S.power && S.on[r]);
+  }
+  const isLit = () => isLitRoom(S.room) || carriedLight();
+  function danger() {
+    if (!isLit()) return true;
+    if (S.room === "cellar") return !(S.power && S.on.cellar) && !S.saltLine;
+    if (S.room === "workshop") return !S.lampOn;
+    return false;
+  }
+  function award(key, pts = 5) {
+    if (S.scored[key]) return;
+    S.scored[key] = 1; S.score += pts;
+    say(`[Your score has gone up by ${pts} points.]`, "note");
+  }
+  function moveItem(id, to) { S.loc[id] = to; S.moved[id] = true; }
+
+  function reachable(id, lit) {
+    const loc = S.loc[id];
+    if (loc === "player") return true;
+    if (!loc) return false;
+    if (loc === S.room) return lit || !!ITEMS[id].feel;
+    const c = ITEMS[loc];
+    if (!c) return false;
+    if (!lit) return false;
+    if (c.openable && !S.open[loc]) return false;
+    if (c.hideUntil && !S.flags[c.hideUntil]) return false;
+    return reachable(loc, lit);
+  }
+  function visible() { const lit = isLit(); return Object.keys(ITEMS).filter((id) => reachable(id, lit)); }
+
+  const STOP = new Set(["the", "a", "an", "some", "my", "his", "her", "this", "that", "of", "your"]);
+  const toWords = (s) => s.split(" ").filter((w) => w && !STOP.has(w));
+
+  function resolve(phrase) {
+    const ws = toWords(phrase || "");
+    if (!ws.length) return { err: "Be a little more specific." };
+    if (ws.length === 1 && ["me", "myself", "self", "elaine"].includes(ws[0])) return { id: "me" };
+    if (ws[0] === "all" || ws[0] === "everything") return { id: "all" };
+    const vis = visible();
+    let best = null, bestScore = -Infinity;
+    for (const id in ITEMS) {
+      const set = ITEMS[id].words;
+      let sc = 0;
+      for (const w of ws) if (set.includes(w)) sc += 1;
+      if (!sc) continue;
+      const last = ws[ws.length - 1];
+      if (!set.includes(last)) sc -= 0.6;
+      if (set[0] === last) sc += 0.3;
+      if (carried(id)) sc += 0.2;
+      if (ITEMS[id].switchFor === S.room || ITEMS[id].loc === S.room) sc += 0.1;
+      if (!vis.includes(id)) sc -= 100;
+      if (sc > bestScore) { best = id; bestScore = sc; }
+    }
+    if (!best || bestScore < 0) {
+      if (!isLit()) return { err: "It's too dark to find anything like that. You need light." };
+      return { err: `You can't see any ${ws.join(" ")} here.` };
+    }
+    return { id: best };
+  }
+
+  /* ================= TEXT BLOCKS ================= */
+  function readCard() {
+    S.flags.readCard = true;
+    return `Engraved in heavy black type:\n\nSILAS CRANE\nInvestigator of the Unexplained\nTelephone: KLondike 5-0122\n\nHe pressed it into your hand at the funeral and murmured that if anything <em>unusual</em> happened, you should telephone him, day or night. At the time you thought him a vulture.`;
+  }
+
+  function readJournal() {
+    award("journal");
+    S.flags.readJournal = true;
+    return `You turn the pages. Father's handwriting grows smaller and more cramped as the entries go on.
+
+<em>12th March.</em> Broke through the back wall of the workshop to run new cable. Behind it, a small sealed chamber, older than the house. Nothing in it. Nothing at all. But the dark in there did not lift when I held up the lamp.
+
+<em>20th March.</em> They come out at night. Tall, man-shaped, darker than the dark around them. They cannot bear light. A lamp sends them back into the corners like water draining from a basin. Darkness is their element and their road.
+
+<em>2nd April.</em> They broke every bulb in the cellar. They are learning.
+
+<em>15th April.</em> Wrote to a man named Crane who claims to understand these things. No reply.
+
+<em>30th April.</em> The arc lamp is finished. Carbon arc, ten thousand candlepower. Turned full upon the seam, I believe its light will burn the opening shut. It draws a great deal of current. I have put a spare fuse in my desk drawer against the storm season.
+
+<em>9th May.</em> One spoke to me tonight. It used Margaret's voice. It asked me to put out the light so that we could talk. God forgive me, I nearly did. <em>Whatever voice they use, it is not who it pretends to be.</em>
+
+<em>11th May.</em> If anything should happen to me — Lainey, if you are reading this — keep the lights on, sweetheart. Always keep the lights on.
+
+That is the last entry. He died on the twelfth.`;
+  }
+
+  /* ================= ROOM LOOK ================= */
+  function look() {
+    if (!isLit()) {
+      say("Darkness", "room");
+      const sw = ROOMS[S.room].light;
+      say(`It is completely dark. You know this house by heart, but not like this.${sw ? " The light switch should be somewhere by the door." : ""}`);
+      return;
+    }
+    say(ROOMS[S.room].name, "room");
+    say(ROOMS[S.room].desc());
+    listItems();
+  }
+
+  function listItems() {
+    const lines = [];
+    const lit = isLit();
+    for (const id in ITEMS) {
+      const it = ITEMS[id];
+      if (it.scenery || carried(id) || id === "crane") continue;
+      if (!reachable(id, lit)) continue;
+      const loc = S.loc[id];
+      if (!S.moved[id] && it.initial) lines.push(it.initial);
+      else if (loc === S.room) lines.push(`You can see ${it.a} here.`);
+      else if (ITEMS[loc]) lines.push(`${cap(ITEMS[loc].surface ? "on" : "in")} ${ITEMS[loc].a} is ${it.a}.`);
+    }
+    if (lines.length) say(lines.join(" "));
+  }
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
+  /* ================= EXITS ================= */
+  function frontDoorExit() {
+    if (S.crane === "knocking") { craneArrives(); return null; }
+    return `You won't go out into that storm. And you won't leave Father's house to <em>them</em>.`;
+  }
+  function studyExit() {
+    if (S.open.studyDoor) return "study";
+    if (S.locked.studyDoor) {
+      if (carried("key")) { unlockStudy(); S.open.studyDoor = true; say("You push the door open."); return "study"; }
+      return "The study door is locked. Father always kept the key on him.";
+    }
+    S.open.studyDoor = true; say("You open the study door."); return "study";
+  }
+  function unlockStudy() {
+    S.locked.studyDoor = false;
+    say(`The brass key turns stiffly. The lock gives with a click that sounds very loud in the quiet house.`);
+    award("study");
+  }
+
+  /* ================= TIMED EVENTS ================= */
+  function tick() {
+    S.turn++;
+    burn("candle"); burn("flashlight");
+    storm();
+    craneTimer();
+    if (S.over) return;
+    if (S.room === "workshop") voice();
+    if (S.over) return;
+    if (S.flags.skipDread) { S.flags.skipDread = false; return; }
+    if (danger()) {
+      S.dread++;
+      if (S.dread >= 4) return die(deathText());
+      say(dreadText(), "dread");
+    } else if (S.dread > 0) {
+      S.dread = 0;
+      say("The shapes draw back from the light. For now.", "calm");
+    }
+  }
+
+  function burn(id) {
+    if (!S.lit[id]) return;
+    S.fuel[id]--;
+    const near = carried(id) || S.loc[id] === S.room;
+    const nm = id === "candle" ? "candle" : "flashlight";
+    if (S.fuel[id] <= 0) {
+      S.lit[id] = false;
+      if (near) say(id === "candle" ? "Your candle gutters, drowns in its own wax, and goes out." : "The flashlight beam turns brown, then orange, then dies.", "event");
+    } else if (near && (S.fuel[id] === 10 || S.fuel[id] === 4)) {
+      say(id === "candle" ? `The candle is burning low.` : `The ${nm} beam is fading.`, "note");
+    }
+  }
+
+  function storm() {
+    if (!S.power || S.flags.stormDone) return;
+    const at = S.callTurn != null ? S.callTurn + 6 : 40;
+    if (S.turn === at - 2) say(`Every light in the house flickers. Thunder rolls over the roof like furniture being dragged across a floor upstairs.`, "event");
+    else if (S.turn === at - 1) say(`The lights sink to a dull brown, then surge back. If the power goes, you will want something else to see by.`, "event");
+    else if (S.turn >= at) {
+      S.power = false; S.flags.stormDone = true; S.powerOffTurn = S.turn;
+      say(`Lightning: a white flash that turns every window into a sheet of paper, and a crack of thunder right on top of the house. Every light goes out at once. Far below, in the cellar, something pops.\n\nThe house is dark.`, "event");
+    }
+  }
+
+  function craneTimer() {
+    if (S.crane === "away" && S.callTurn != null && !S.power && S.turn >= S.powerOffTurn + 8) {
+      S.crane = "knocking"; S.knockAt = S.turn; knock();
+    } else if (S.crane === "knocking" && (S.turn - S.knockAt) % 6 === 0) knock();
+  }
+  function knock() {
+    const r = S.room;
+    if (r === "hallway") say(`Someone is pounding on the front door, right beside you.`, "event");
+    else if (["cellar", "workshop"].includes(r)) say(`Far above, faint through the floor, someone is knocking at the front door.`, "event");
+    else say(`From the front of the house comes a heavy pounding: someone at the front door.`, "event");
+  }
+
+  function craneArrives() {
+    S.crane = "parlor"; S.loc.crane = "parlor";
+    say(`You draw back the bolts. The wind throws the door wide, and with it comes a tall, gaunt man in a dripping cape, a carpetbag in one hand and an electric lantern in the other.
+
+"Silas Crane," he announces, as if you might have forgotten. "Investigator of the Unexplained. I came as fast as the roads allowed, Miss Ashcombe. You were quite right to telephone. Quite right." He swings his lantern toward the corners of the hall, and you would swear something there draws back from the beam.
+
+"The parlor, I think. A defensible position." He strides past you, and through the doorway you watch him light candle after candle from his bag and pour a careful circle of salt around the sofa.`, "event");
+    award("crane");
+  }
+
+  const VOICE_DARK = [
+    `"It's me, Lainey. It's Father. They lied to you, the doctor and all of them. I'm not dead. I'm only in here, in the dark. Put out your light and I can come to you."`,
+    `"Lainey, please. The light hurts my eyes. You remember how I hated bright light? Put it out, sweetheart."`,
+    `"Why won't you listen to your father?" The voice is closer now, and something in it has gone wrong: too many voices, all speaking almost together.`,
+  ];
+  const VOICE_LIT = [
+    `The voice rises to a scream. "Lainey, it BURNS. Turn it off! Turn it off, you're killing me!"`,
+    `"Sweetheart. Please. Don't you love me? Turn off the lamp."`,
+    `The dark in the seam boils and heaves, but the white beam is lying across the floor by the bench. It needs to be pointed at the seam.`,
+  ];
+  function voice() {
+    if (!S.flags.voiceStarted) return;
+    const lines = S.lampOn ? VOICE_LIT : VOICE_DARK;
+    const i = S.lampOn ? (S.flags.litVoice = (S.flags.litVoice || 0) + 1) - 1 : S.voice++;
+    say(lines[Math.min(i, lines.length - 1)], "voice");
+  }
+
+  function dreadText() {
+    const deep = isLit();
+    if (deep) return [
+      "",
+      `Your little light shrinks. The dark here is thicker and older, and it presses in around your flame like a hand closing around a moth.`,
+      `Shapes lean out of the brickwork, huge and hunched and patient. Your light holds them off by inches.`,
+      `They are all around you now. Your light will not hold them much longer.`,
+    ][S.dread];
+    return [
+      "",
+      `Something shifts in the black. You feel it more than see it: a thickening of the dark just at the edge of your eyes.`,
+      `A cold weight is moving toward you. The floorboards don't creak, but you hear breathing that is not your own.`,
+      `It is close enough to touch you. Every nerve you have is screaming for light. NOW.`,
+    ][S.dread];
+  }
+  function deathText() {
+    return `The dark folds over you like water. There is no pain, only cold, and a whisper that sounds almost kind, and then nothing at all.\n\nIn the morning they will find you where they found him, eyes open, and the doctor will say it was your heart.`;
+  }
+
+  function die(text) {
+    say(text, "death");
+    say("The shadows have taken you", "end lost");
+    say(`Type UNDO to take back your last move, RESTORE to load a saved game, or RESTART to begin again.`, "note");
+    S.over = "dead";
+  }
+
+  /* ================= VERBS ================= */
+  const DIR = { n: "n", north: "n", s: "s", south: "s", e: "e", east: "e", w: "w", west: "w", u: "u", up: "u", upstairs: "u", d: "d", down: "d", downstairs: "d" };
+  const DIRNAME = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
+
+  function go(d) {
+    if (S.room === "workshop" && d === "e") return enterSeam();
+    let t = ROOMS[S.room].exits[d];
+    if (!t) { say(isLit() ? `You can't go ${DIRNAME[d]} from here.` : `You grope in the dark, but there's only wall that way.`); return false; }
+    if (typeof t === "function") t = t();
+    if (t === null) return true;
+    if (!ROOMS[t]) { say(t); return false; }
+    S.room = t;
+    const first = !S.visited[t];
+    S.visited[t] = true;
+    if (t === "hallway" && !S.flags.scare && !isLit()) {
+      S.flags.scare = true; S.dread = 2; S.flags.skipDread = true;
+      say("The Hallway", "room");
+      say(`You step out into the hallway. It is almost pitch black. The only light is the yellow spill from the library door behind you.\n\nYou glance back over your shoulder, and there, against that faint glow, something huge and hunched is moving toward you. It isn't walking. It is <em>flowing</em>, the way smoke flows, and it is between you and the library.\n\nThe light switch. It's right here by the door. Somewhere.`, "event");
+      return true;
+    }
+    look();
+    if (t === "workshop" && first) {
+      S.flags.voiceStarted = true;
+      say(`And from the seam, soft as a hand on your hair, comes a voice you know better than your own.\n\n"Lainey? Lainey, is that you? Oh, sweetheart. Put that light down and come here. I've been so cold."`, "voice");
+    }
+    return true;
+  }
+
+  function examine(id) {
+    if (id === "me") { say(`Elaine Ashcombe, twenty-four years old, still in the black dress from the funeral. Your hands haven't stopped shaking since the hallway.`); return false; }
+    if (id === "all") { say("One thing at a time."); return false; }
+    const it = ITEMS[id];
+    if (!isLit() && !carried(id)) { say(`You can feel ${it.a}, but you can't see it.`); return false; }
+    if (!isLit() && carried(id)) { say(`You turn ${it.a} over in your hands, but it's too dark to see.`); return false; }
+    say(it.desc());
+    if (it.container && !it.surface && (S.open[id] || !it.openable)) showContents(id);
+    if (it.surface) showContents(id);
+    if (it.opens && S.open[it.opens]) showContents(it.opens);
+    return false;
+  }
+  function showContents(id) {
+    const inside = Object.keys(ITEMS).filter((k) => S.loc[k] === id && reachable(k, isLit()));
+    if (!inside.length) { if (!ITEMS[id].surface && ITEMS[id].openable) say(`It's empty.`); return; }
+    say(`${cap(ITEMS[id].surface ? "on" : "in")} ${ITEMS[id].a}: ${inside.map((k) => ITEMS[k].a).join(", ")}.`);
+  }
+
+  function search(id) {
+    if (id === "coat") { examine("coat"); return true; }
+    const it = ITEMS[id];
+    if (!isLit()) { say("It's too dark to search anything."); return false; }
+    if (it.opens) id = it.opens;
+    const c = ITEMS[id];
+    if (!c.container) { say(`You find nothing of interest.`); return true; }
+    if (c.openable && !S.open[id]) { S.open[id] = true; say(`You open ${c.a}.`); }
+    showContents(id);
+    return true;
+  }
+
+  function read(id) {
+    const it = ITEMS[id];
+    if (!isLit()) { say("It's far too dark to read."); return false; }
+    if (id === "watch") { say(it.desc()); return true; }
+    if (!it.read) { say(`There's nothing written on ${it.a}.`); return false; }
+    say(it.read());
+    return true;
+  }
+
+  function take(id) {
+    if (id === "all") {
+      const lit = isLit();
+      const list = Object.keys(ITEMS).filter((k) => !ITEMS[k].scenery && !ITEMS[k].npc && !carried(k) && reachable(k, lit));
+      if (!list.length) { say("There's nothing here you can take."); return false; }
+      for (const k of list) { moveItem(k, "player"); say(`${cap(ITEMS[k].a)}: taken.`); }
+      return true;
+    }
+    if (id === "me") { say("You hold yourself together. Mostly."); return false; }
+    const it = ITEMS[id];
+    if (carried(id)) { say(`You already have ${it.a}.`); return false; }
+    if (id === "sheet") return removeSheet();
+    if (id === "arcLamp") { say(`It's far too heavy to lift. But it's on wheels.`); return false; }
+    if (id === "phone") return call();
+    if (it.npc) { say("Mr. Crane would object."); return false; }
+    if (it.scenery) { say(`You can't take ${it.a}.`); return false; }
+    if (id === "blownFuse" && S.loc.blownFuse === "fusebox") { moveItem(id, "player"); say("You unscrew the blackened fuse and take it."); return true; }
+    if (id === "key" && !S.flags.coatSearched) S.flags.coatSearched = true;
+    moveItem(id, "player");
+    say(`Taken.`);
+    if (id === "watch") say(`It ticks against your palm like a small heart.`);
+    return true;
+  }
+
+  function drop(id) {
+    if (id === "all") {
+      const list = Object.keys(ITEMS).filter(carried);
+      if (!list.length) { say("You're not carrying anything."); return false; }
+      list.forEach((k) => moveItem(k, S.room)); say("You put everything down."); return true;
+    }
+    if (!carried(id)) { say(`You aren't carrying ${ITEMS[id] ? ITEMS[id].a : "that"}.`); return false; }
+    moveItem(id, S.room);
+    say(`Dropped.`);
+    if (ITEMS[id].light && S.lit[id] && !isLit()) {}
+    return true;
+  }
+
+  function open(id) {
+    const it = ITEMS[id];
+    if (it.opens) id = it.opens;
+    const c = ITEMS[id];
+    if (id === "frontDoor") {
+      if (S.crane === "knocking") { craneArrives(); return true; }
+      say(S.crane === "parlor" ? `You've let in enough of the night for one evening.` : `You won't go out into that storm. And you won't leave Father's house to <em>them</em>.`);
+      return false;
+    }
+    if (id === "studyDoor") {
+      if (S.open.studyDoor) { say("It's already open."); return false; }
+      if (S.locked.studyDoor) {
+        if (!carried("key")) { say("It's locked. Father always kept the key on him."); return false; }
+        unlockStudy();
+      }
+      S.open.studyDoor = true; say("The study door swings open."); return true;
+    }
+    if (id === "cellarDoor") {
+      if (S.open.cellarDoor) { say("It's already open."); return false; }
+      if (S.bolted.cellarDoor) { S.bolted.cellarDoor = false; say(`You draw back the bolt. Your hand doesn't want to do it.`); }
+      S.open.cellarDoor = true;
+      say(`The cellar door swings open. Cold air rises from below, smelling of coal and wet brick.`);
+      return true;
+    }
+    if (id === "workshopDoor") {
+      if (S.open.workshopDoor) { say("It's already open."); return false; }
+      S.open.workshopDoor = true;
+      say(`You haul the iron door open. It grinds on its hinges. Something on the other side breathes out.`);
+      return true;
+    }
+    if (id === "watch") { say(ITEMS.watch.desc()); return true; }
+    if (id === "coat") { say(ITEMS.coat.desc()); return true; }
+    if (!c.openable) { say(`You can't open ${c.a}.`); return false; }
+    if (S.open[id]) { say("It's already open."); return false; }
+    S.open[id] = true;
+    say(`You open ${c.a}.`);
+    if (isLit()) showContents(id); else say("It's too dark to see what's inside.");
+    return true;
+  }
+
+  function close(id) {
+    const it = ITEMS[id];
+    if (it.opens) id = it.opens;
+    const c = ITEMS[id];
+    if (["studyDoor", "cellarDoor", "workshopDoor"].includes(id) || c.openable) {
+      if (!S.open[id]) { say("It's already closed."); return false; }
+      S.open[id] = false; say(`You close ${c.a}.`); return true;
+    }
+    say(`You can't close ${c.a}.`); return false;
+  }
+
+  function unlock(id) {
+    if (id === "studyDoor") return open("studyDoor");
+    if (id === "cellarDoor") return open("cellarDoor");
+    if (id === "frontDoor") return open("frontDoor");
+    say(`That doesn't need unlocking.`); return false;
+  }
+
+  function roomSwitch() { const l = ROOMS[S.room].light; return l && S.loc[l] === S.room ? l : null; }
+
+  function turnOn(id) {
+    if (!id) {
+      id = roomSwitch();
+      if (!id) {
+        const f = ["flashlight", "lantern", "candle"].find((k) => carried(k) && !S.lit[k]);
+        if (f) id = f;
+        else if (S.room === "workshop") id = "arcLamp";
+        else { say("There's no light switch here."); return false; }
+      }
+    }
+    const it = ITEMS[id];
+    if (it.switchFor) {
+      const r = it.switchFor;
+      if (S.on[r] && S.power) { say("It's already on."); return false; }
+      const wasDark = !isLit();
+      S.on[r] = true;
+      if (!S.power) { say(`You ${wasDark ? "find the switch by touch and " : ""}flip it. Nothing. The storm has taken the power. ${wasDark ? "" : "(It will come back on if the power does.)"}`); return true; }
+      if (r === "hallway" && !S.scored.hall) {
+        say(`Your fingers find the switch, and light floods the hallway. The shape is simply gone, as if it had never been. There is only the runner, the telephone, the tall clock ticking. Your hands are shaking.`, "event");
+        award("hall");
+        S.dread = 0;
+        look();
+        return true;
+      }
+      say(wasDark ? `Your fingers find the switch. Light floods the room.` : `Click. ${cap(it.a)} comes on.`);
+      if (wasDark) { S.dread = 0; look(); }
+      return true;
+    }
+    if (id === "flashlight") {
+      if (!carried(id)) { say("You'd need to be holding it."); return false; }
+      if (S.fuel.flashlight <= 0) { say("You click it. Nothing. The batteries are dead."); return true; }
+      if (S.lit.flashlight) { say("It's already on."); return false; }
+      const wasDark = !isLit();
+      S.lit.flashlight = true; say(`A thin yellow beam jumps out of the flashlight.`); award("light");
+      if (wasDark) { S.dread = 0; look(); }
+      return true;
+    }
+    if (id === "candle" || id === "lantern") return light(id);
+    if (id === "arcLamp") return lampOn();
+    if (id === "phone") return call();
+    if (id === "watch") { say("You wind the watch. It ticks on, steady and stubborn."); return true; }
+    say(`You can't switch that on.`); return false;
+  }
+
+  function turnOff(id) {
+    if (!id) id = roomSwitch() || ["flashlight", "lantern", "candle"].find((k) => carried(k) && S.lit[k]);
+    if (!id) { say("Turn off what?"); return false; }
+    const it = ITEMS[id];
+    if (it.switchFor) {
+      if (!S.on[it.switchFor]) { say("It's already off."); return false; }
+      S.on[it.switchFor] = false; say(`You switch off ${it.a}. ${!isLit() ? "Darkness drops over you like a sack." : ""}`); return true;
+    }
+    if (id === "arcLamp") {
+      if (!S.lampOn) { say("It's not on."); return false; }
+      S.lampOn = false;
+      die(`Your hand finds the knife switch. The voice sighs with relief, "Thank you, sweetheart," and as the white light dies you understand, much too late, that your father would never, ever have asked you to sit in the dark.\n\nThe seam opens like a mouth.`);
+      return true;
+    }
+    if (["candle", "lantern", "flashlight"].includes(id)) {
+      if (!S.lit[id]) { say("It isn't lit."); return false; }
+      S.lit[id] = false;
+      say(id === "flashlight" ? "You switch off the flashlight." : `You ${id === "candle" ? "pinch out the candle" : "turn down the wick until the lantern goes out"}.`);
+      if (!isLit()) say("The dark comes back all at once.", "dread");
+      return true;
+    }
+    say(`You can't switch that off.`); return false;
+  }
+
+  function light(id, tool) {
+    if (!id) {
+      id = ["lantern", "candle"].find((k) => carried(k) && !S.lit[k]);
+      if (!id) { say(carried("matchbook") ? "Light what?" : "You have nothing to light."); return false; }
+    }
+    if (id === "matchbook") {
+      const t = ["lantern", "candle"].find((k) => carried(k) && !S.lit[k]);
+      if (t) return light(t);
+      if (!S.matches) { say("The matchbook is empty."); return false; }
+      S.matches--; say(`The match flares, burns down to your fingers, and goes out. ${S.matches} left. You should save them for something worth lighting.`); return true;
+    }
+    if (id === "flashlight") return turnOn("flashlight");
+    if (ITEMS[id].switchFor || id === "arcLamp") return turnOn(id);
+    if (!["candle", "lantern"].includes(id)) { say(`You can't light ${ITEMS[id].a}.`); return false; }
+    if (!carried(id) && S.loc[id] !== S.room) { say("You'd need to be holding it."); return false; }
+    if (S.lit[id]) { say("It's already lit."); return false; }
+    if (id === "candle" && S.fuel.candle <= 0) { say("There's nothing left of it to light."); return false; }
+    const flame = ["candle", "lantern"].find((k) => k !== id && carried(k) && S.lit[k]);
+    const wasDark = !isLit();
+    if (flame && tool !== "matchbook") {
+      say(`You tip the ${id} to the ${flame}'s flame until it catches.`);
+    } else {
+      if (!carried("matchbook")) { say("You have nothing to light it with."); return false; }
+      if (!S.matches) { say("The matchbook is empty."); return false; }
+      S.matches--;
+      say(wasDark ? `Your fingers find a match by touch. You strike it: a hiss, a flare, and the dark jumps back from you.` : `You strike a match.`);
+    }
+    S.lit[id] = true;
+    say(id === "candle" ? `The candle takes the flame and holds it, small and brave.` : `The lantern wick catches. You settle the glass chimney, and a steady yellow light fills the space around you.`);
+    award("light");
+    if (wasDark) { S.dread = 0; look(); }
+    return true;
+  }
+
+  function call(target) {
+    if (S.room !== "hallway") { say("The telephone is in the hallway."); return false; }
+    if (!S.power) { say(`You lift the receiver. Silence. Not even a hum. The storm must have brought the lines down.`); return true; }
+    if (S.callTurn != null) { say(`The operator rings and rings. No answer. He must already be on his way.`); return true; }
+    if (!S.flags.readCard && !(target && /crane|klondike|50122|5 0122/.test(target))) {
+      say(`Who would you call? There's no one... and then you remember the strange man at the funeral, and the card he pressed into your hand. It's on the library desk.`); return false;
+    }
+    S.callTurn = S.turn;
+    say(`You lift the receiver and ask the operator for KLondike 5-0122. It rings a long time.
+
+"Crane." The voice is plummy, theatrical, wide awake. You tell him: the feeling of being watched, the shape in the hallway, the way it vanished in the light. You expect him to laugh. He doesn't.
+
+"Miss Ashcombe. Listen to me very carefully. Keep the lights burning. Every one you can. I am coming now, but the roads are bad; give me an hour. And Miss Ashcombe? Your father's papers. Find them. He knew more than he told you."
+
+The line clicks dead.`, "event");
+    award("call");
+    return true;
+  }
+
+  const CRANE_TOPICS = [
+    [/shadow|them|thing|shape|creature|people|dark/, `"The Shadow People." He says it with a certain relish. "Older than this house, older than this county. They have no substance of their own. They wear the dark the way you wear that dress. Light doesn't hurt them so much as <em>unmake</em> them. Keep a light burning and they cannot hold their shape."`],
+    [/father|edmund|dad|ashcombe/, `He looks at his hands. "Your father wrote to me in April. I'm afraid I thought him a crank. I didn't answer." A long pause. "I should have answered."`],
+    [/salt/, `"Salt, my dear. Common cooking salt. A line of it is a wall to them, for a time. Every kitchen has some. If you must go somewhere very dark, lay a line of it down first."`],
+    [/cellar|basement|workshop|down/, `"The cellar, yes. The source, no doubt." He tugs at his moustache. "I shall be invaluable here, holding the parlor. Someone must maintain the... base of operations."`],
+    [/journal|papers|notes|diary/, S2 => S2.flags.readJournal ? `"A carbon arc, turned on the opening itself." He whistles softly. "Mad. Quite mad. It might work. You'll need the current back on for it, which means the fuse box."` : `"Your father's papers are the key to this. Find them. Read them."`],
+    [/fuse|power|electric|current/, `"Fuses? My dear girl, I am a scholar, not an electrician. But I imagine the new one goes where the old one was."`],
+    [/watch/, `"Keep it close," he says, surprisingly gently. "Objects like that are anchors. Love is the oldest light there is. Don't tell my colleagues I said so."`],
+    [/voice|speak|talk|lie|mother|margaret/, `"They will speak to you with voices you love. Believe nothing that asks you to put out a light. <em>Nothing.</em>"`],
+    [/himself|crane|you|silas|expert|investigator/, `"Author of three monographs, fellow of two societies you've never heard of, and at present thoroughly terrified." He smiles thinly. "Two out of three isn't bad."`],
+    [/lamp|arc|light|candle|lantern/, `"Keep something burning at all times. That is the whole of the law here."`],
+  ];
+  function talk() {
+    if (S.loc.crane !== S.room) { say(`There's no one here to talk to. There's no one in the whole house but you. You hope.`); return false; }
+    say(`"Miss Ashcombe." He makes a little bow without leaving his circle. "Ask me what you like: about the shadows, your father, salt, the cellar, his papers. I am, after all, the authority."`);
+    return true;
+  }
+  function ask(topic) {
+    if (S.loc.crane !== S.room) { say(`There's no one here to ask.`); return false; }
+    for (const [re, ans] of CRANE_TOPICS) if (re.test(topic)) { say(typeof ans === "function" ? ans(S) : ans); return true; }
+    say(`He strokes his moustache. "A fascinating question, my dear. For another night, perhaps."`);
+    return true;
+  }
+
+  function pour(target) {
+    if (!carried("salt")) { say(S.loc.salt && reachable("salt", isLit()) ? "You'd need to pick up the salt first." : "You don't have anything to pour."); return false; }
+    if (S.room === "cellar") {
+      if (S.saltLine) { say("The line is already there, unbroken."); return false; }
+      S.saltLine = true;
+      say(`You tear open the carton and pour a thick white line across the brick floor, wall to wall, fencing in the foot of the stairs and the fuse box. The pressing dark comes up to the line and stops, as if it had walked into glass.`, "event");
+      award("salt");
+      S.dread = 0;
+      return true;
+    }
+    if (S.room === "workshop") { say(`You fling a handful at the seam. It hisses and vanishes into the black. Whatever is in there is too big for salt.`); return true; }
+    say(`You'd rather save it. Mr. Crane would say to use it where the dark is worst.`);
+    return false;
+  }
+
+  function putIn(id, target) {
+    if (id === "fuse" || (id === "blownFuse" && target === "fusebox")) {
+      if (id === "blownFuse") { say("That one's blown. You need a good fuse."); return false; }
+      if (!carried("fuse")) { say("You don't have a spare fuse."); return false; }
+      if (S.room !== "cellar") { say("The fuse box is in the cellar."); return false; }
+      if (!isLit()) { say("You can't do this blind. You need light."); return false; }
+      const lines = [];
+      if (!S.open.fusebox) { S.open.fusebox = true; lines.push("You open the fuse box."); }
+      if (S.loc.blownFuse === "fusebox") { moveItem("blownFuse", "cellar"); lines.push("You unscrew the blackened old fuse and drop it."); }
+      moveItem("fuse", "fusebox");
+      S.power = true;
+      lines.push(`You screw the new fuse home. For a heartbeat nothing happens. Then, all through the house above you, the lights you left switched on come back to life, and the old wiring hums like something waking up.`);
+      say(lines.join(" "), "event");
+      if (!S.on.cellar) say(`The cellar bulb stays dark; it's on a pull chain.`);
+      award("power");
+      return true;
+    }
+    if (id === "salt") return pour(target);
+    if (!carried(id)) { say(`You don't have ${ITEMS[id].a}.`); return false; }
+    const t = target && ITEMS[target];
+    if (t && (t.container || t.openable)) {
+      if (t.openable && !S.open[target]) { say(`${cap(t.a)} is closed.`); return false; }
+      moveItem(id, target); say(`You put ${ITEMS[id].a} ${t.surface ? "on" : "in"} ${t.a}.`); return true;
+    }
+    say("That doesn't seem to help."); return false;
+  }
+
+  function removeSheet() {
+    if (S.room !== "workshop") { say("You can't see that here."); return false; }
+    if (S.sheetOff) { say("The sheet is already off."); return false; }
+    S.sheetOff = true; S.loc.sheet = null;
+    say(`You drag the dust sheet away. Father's arc lamp: a great brass drum with a lens like a lighthouse eye, on an iron stand with wheels. Cables run from it to a junction box on the wall. There is a big knife switch on its side.`);
+    return true;
+  }
+
+  function lampOn() {
+    if (S.room !== "workshop") { say("You can't see that here."); return false; }
+    if (S.lampOn) { say("It's already blazing."); return false; }
+    const pre = S.sheetOff ? "" : (S.sheetOff = true, S.loc.sheet = null, `You drag the dust sheet away: a brass drum with a lens like a lighthouse eye, on a wheeled stand. `);
+    if (!S.power) { say(`${pre}You throw the big knife switch. It clacks home, and nothing happens. There's no current. The storm blew the fuse.`); return true; }
+    S.lampOn = true; S.dread = 0;
+    say(`${pre}You throw the big knife switch.\n\nFor a second, nothing. Then a hiss, a crackle, and a light so white it has a sound, a high electric whine, pours out of the lens. The shadows in the room don't flee. They <em>burn</em>, curling away like paper in a fire.\n\nBut the beam lies across the floor beside the bench. The seam in the far wall still gapes.`, "event");
+    return true;
+  }
+
+  function aim(target) {
+    if (S.room !== "workshop") { say("There's nothing here to aim."); return false; }
+    if (!S.lampOn) { say(S.sheetOff ? "Aiming a dark lamp won't do anything. It needs to be switched on." : "Whatever is under that sheet, it needs uncovering first."); return false; }
+    win();
+    return true;
+  }
+
+  function win() {
+    award("seal");
+    S.over = "won";
+    say(`You put your shoulder to the iron stand and heave. The wheels shriek; the white beam swings across the brick and finds the seam.
+
+The dark inside it screams with every voice it ever stole. You hear your father's voice, and your mother's, and others you never knew, all howling at once, and under them something that never had a voice of its own. The light pours into the opening like water into a crack. The edges of the seam begin to <em>close</em>, brick knitting to brick, the black narrowing to a line, to a thread, to nothing.
+
+The lamp whines on, lighting a blank brick wall.`, "event");
+    say(`${S.scored.watch ? "The watch is ticking in your hand. " : ""}You don't remember climbing the stairs. You remember the parlor${S.crane === "parlor" ? ", and Mr. Crane asleep bolt upright inside his circle of salt" : ""}, and the windows turning grey, and then gold. The rain has stopped.
+
+Later, much later, you will sell the house. But tonight, before you sleep, you go up to Father's study, switch on the green lamp, and leave it burning.
+
+Someone should always leave a light on.`);
+    say("The Shadows Are Gone", "end");
+    const rank = S.score >= 50 ? "Keeper of the Light" : S.score >= 40 ? "Lamplighter" : S.score >= 30 ? "Survivor of the Long Night" : "Lucky to Be Alive";
+    say(`You scored ${S.score} out of ${MAX} in ${S.turn} turns, earning the rank of ${rank}. Type RESTART to play again.`, "note");
+  }
+
+  function show() {
+    if (!carried("watch")) { say("You have nothing to show."); return false; }
+    if (S.room === "workshop" && S.flags.voiceStarted) {
+      S.flags.sawWatch = true;
+      say(`You hold up the watch, and the lid falls open in your palm. <em>For Father, who always left a light on for me.</em>\n\n"He never let me come home to a dark house," you say, and your voice hardly shakes at all. "Not once. You are not my father."\n\nThe voice stops. Then something in the seam laughs with no one's voice at all, and the shape of it leans out of the dark to look at you: huge, hunched, patient. You don't look away.`, "event");
+      award("watch");
+      return true;
+    }
+    if (S.loc.crane === S.room) { say(CRANE_TOPICS.find((t) => t[0].test("watch"))[1]); return true; }
+    say(ITEMS.watch.desc()); return true;
+  }
+
+  function sayWords(text) {
+    if (S.room === "workshop" && S.flags.voiceStarted) {
+      if (/\b(no|not|liar|lie|never|go away|leave)\b/.test(text)) {
+        say(`"You're not him," you whisper. The voice falls silent for a moment. Then it laughs, with no one's voice at all.`, "voice");
+        return true;
+      }
+      if (/\b(yes|father|dad|daddy|coming|ok|okay)\b/.test(text)) { say(`"Yes," the voice breathes. "Yes. Now put out the light."`, "voice"); return true; }
+    }
+    if (S.loc.crane === S.room) { say(`Mr. Crane nods as if you've said something profound.`); return true; }
+    say(`Your voice sounds very small in the empty house.`);
+    return true;
+  }
+
+  function enterSeam() {
+    if (S.room !== "workshop") { say("You can't go that way."); return false; }
+    die(`You step toward the voice. It is so like him. "That's it, sweetheart. Just a little further."\n\nThe dark beyond the seam closes around you like cold water, and the voice goes on talking, and talking, in your father's tones, long after there is anyone left to hear it.`);
+    return true;
+  }
+
+  function hint() {
+    const h = (() => {
+      if (!S.scored.hall) return S.room === "library" ? `The hallway to the east is dark. Before you go, look at the desk (EXAMINE DESK, READ CARD).` : `TURN ON LIGHT. The switch is by the door.`;
+      if (!S.flags.readCard) return `There's a calling card on the library desk. READ CARD.`;
+      if (S.callTurn == null && S.power) return `Telephone the man on the card. Go to the hallway and CALL CRANE.`;
+      if (!carriedLight() && !S.power) return carried("matchbook") && carried("candle") ? `LIGHT CANDLE. Now.` : `You need light. Father kept candles and matches in the library desk drawer.`;
+      if (!carried("candle") && !carried("lantern") && S.power) return `The lights may not last. OPEN DRAWER in the library desk, and TAKE CANDLE and TAKE MATCHES.`;
+      if (!S.flags.readJournal) {
+        if (S.locked.studyDoor && !carried("key")) return `Father's study upstairs is locked. His key would be in his things. Try the wardrobe in his bedroom (OPEN WARDROBE, SEARCH COAT).`;
+        return `Father's study is north of the landing. READ JOURNAL there.`;
+      }
+      if (!carried("fuse") && !S.power) return `The journal mentions a spare fuse. Look in the study desk drawer.`;
+      if (S.crane === "knocking") return `Someone is at the front door. Go to the hallway and OPEN DOOR.`;
+      if (!carried("lantern") && S.lit.candle && S.fuel.candle < 25) return `Your candle won't last. There's a storm lantern in the kitchen pantry.`;
+      if (!S.open.cellarDoor) return `The cellar door is in the kitchen. OPEN it.`;
+      if (!S.saltLine && !S.power) return carried("salt") ? `In the cellar, POUR SALT before the dark closes in.` : `Small lights won't hold back the cellar dark. Take the salt from the kitchen pantry.`;
+      if (!S.power) return `In the cellar, PUT FUSE IN BOX.`;
+      if (!S.open.workshopDoor) return `The workshop is behind the iron door east of the cellar. OPEN DOOR.`;
+      if (!S.lampOn) return `In the workshop, TURN ON LAMP.`;
+      if (!S.scored.watch && carried("watch")) return `The voice isn't him. You could SHOW WATCH. Or just AIM LAMP AT SEAM.`;
+      return `AIM LAMP AT SEAM.`;
+    })();
+    say(h, "note");
+    return false;
+  }
+
+  function help() {
+    say(`You are Elaine Ashcombe. Type what you want to do in plain English, then press Enter.
+
+Moving: NORTH, SOUTH, EAST, WEST, UP, DOWN (or N, S, E, W, U, D).
+Looking: LOOK, EXAMINE DESK (or X DESK), READ CARD, SEARCH COAT.
+Doing: TAKE CANDLE, DROP BOOK, OPEN DRAWER, TURN ON LIGHT, LIGHT CANDLE, CALL CRANE, ASK CRANE ABOUT SALT.
+Other: INVENTORY (I), WAIT (Z), HINT, SCORE, UNDO, SAVE, RESTORE, RESTART.
+
+One rule matters more than any other: stay out of the dark. The meter in the corner shows how close the shadows are.`, "note");
+    return false;
+  }
+
+  function inventory() {
+    const list = Object.keys(ITEMS).filter(carried);
+    if (!list.length) { say("You are carrying nothing."); return false; }
+    say("You are carrying: " + list.map((k) => ITEMS[k].a + (S.lit[k] ? " (lit)" : "")).join(", ") + ".");
+    return false;
+  }
+
+  /* ================= PARSER ================= */
+  function clean(s) {
+    return s.toLowerCase().replace(/[’']s\b/g, "").replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function withObj(phrase, fn) {
+    const r = resolve(phrase);
+    if (r.err) { say(r.err); return false; }
+    return fn(r.id);
+  }
+
+  const RULES = [
+    [/^(?:l|look|look around)$/, () => { look(); return false; }],
+    [/^(?:i|inv|inventory|items)$/, inventory],
+    [/^(?:z|wait|rest|pause)$/, () => { say(S.room === "workshop" && S.flags.voiceStarted ? "You hold your ground." : "Time passes. The clock ticks."); return true; }],
+    [/^(?:hint|hints|clue)$/, hint],
+    [/^(?:help|commands|how to play|\?)$/, help],
+    [/^(?:about|credits|info)$/, () => { say(`<em>The Shadow People</em> is an original interactive adaptation inspired by the episode of the same name from the radio series <em>Hall of Fantasy</em>. Written by Marcus Draper for www.deskatur.com.`, "note"); return false; }],
+    [/^score$/, () => { say(`You have scored ${S.score} out of ${MAX} in ${S.turn} turns.`, "note"); return false; }],
+    [/^(?:go |walk |run |head |climb )?(n|north|s|south|e|east|w|west|u|up|upstairs|d|down|downstairs)(?: stairs)?$/, (m) => go(DIR[m[1]])],
+    [/^(?:climb|go up|ascend) (?:the )?(?:stairs|staircase|steps)$/, () => go(S.room === "cellar" ? "u" : "u")],
+    [/^(?:go down|descend) (?:the )?(?:stairs|staircase|steps)$/, () => go("d")],
+    [/^(?:enter|go into|go in|step into|walk into|follow|go to|touch|reach into) (.+)$/, (m) => /seam|crack|hole|dark|voice|father|chamber|opening/.test(m[1]) ? enterSeam() : say(`Try a direction instead: NORTH, SOUTH, EAST, WEST, UP or DOWN.`) || false],
+    [/^(?:x|examine|inspect|look at|check|study|describe|l at|view|watch) (.+)$/, (m) => withObj(m[1], examine)],
+    [/^(?:search|look in|look inside|look through|rummage in|rummage through|search in|check in|feel in|go through) (.+)$/, (m) => withObj(m[1], search)],
+    [/^(?:read|peruse|study) (.+)$/, (m) => withObj(m[1], read)],
+    [/^(?:pick up|take|get|grab|collect|carry) (.+?)(?: from .+| out of .+| off .+)?$/, (m) => /^(?:off )?(?:sheet|dust sheet|cover|cloth)$/.test(m[1]) ? removeSheet() : withObj(m[1], take)],
+    [/^pick (.+) up$/, (m) => withObj(m[1], take)],
+    [/^(?:drop|put down|discard|leave) (.+)$/, (m) => withObj(m[1], drop)],
+    [/^(?:open|unbolt|pull open) (.+)$/, (m) => withObj(m[1], open)],
+    [/^(?:close|shut|bolt) (.+)$/, (m) => withObj(m[1], close)],
+    [/^unlock (.+?)(?: with .+)?$/, (m) => withObj(m[1], unlock)],
+    [/^(?:answer|let in|let crane in|admit) ?(.*)$/, () => S.room === "hallway" ? open("frontDoor") : (say("There's nothing to answer here."), false)],
+    [/^(?:lights on|light on)$/, () => turnOn(null)],
+    [/^(?:lights off|light off)$/, () => turnOff(null)],
+    [/^(?:turn|switch|flip|flick|power) on(?: (.+))?$/, (m) => m[1] ? withObj(m[1], turnOn) : turnOn(null)],
+    [/^(?:turn|switch|flip|flick|power) (.+) on$/, (m) => withObj(m[1], turnOn)],
+    [/^(?:activate|start|use switch|throw switch|throw knife switch|throw) ?(.*)$/, (m) => m[1] && !/switch/.test(m[1]) ? withObj(m[1], turnOn) : turnOn(S.room === "workshop" ? "arcLamp" : null)],
+    [/^(?:turn|switch|power) off(?: (.+))?$/, (m) => m[1] ? withObj(m[1], turnOff) : turnOff(null)],
+    [/^(?:turn|switch) (.+) off$/, (m) => withObj(m[1], turnOff)],
+    [/^(?:extinguish|blow out|put out|snuff|douse|blow) (.+)$/, (m) => withObj(m[1], turnOff)],
+    [/^pull (?:the )?(?:chain|cord|bulb|pull chain)$/, () => S.room === "cellar" ? (S.on.cellar && S.power ? turnOff("cellarBulb") : turnOn("cellarBulb")) : (say("There's no chain here."), false)],
+    [/^(?:light|ignite|kindle) (.+?)(?: with (.+))?$/, (m) => withObj(m[1], (id) => light(id, m[2] && /match/.test(m[2]) ? "matchbook" : undefined))],
+    [/^(?:strike|light|use) (?:a )?match(?:es)?$/, () => light("matchbook")],
+    [/^(?:call|dial|phone|telephone|ring|use phone|use telephone|pick up phone|pick up telephone|pick up receiver|lift receiver)(?: (.+))?$/, (m) => call(m[1] || "")],
+    [/^(?:talk|speak|chat)(?: to| with)? (.+)$/, () => talk()],
+    [/^(?:hello|hi|greet .+)$/, () => talk()],
+    [/^(?:ask|question|tell)(?: crane| mr crane| silas| him)?(?: about| on)? (.+)$/, (m) => ask(m[1])],
+    [/^(?:pour|sprinkle|spread|scatter|throw|lay|use) (?:the )?salt(?: .+)?$/, () => pour()],
+    [/^(?:put|insert|place|screw|fit|install) (.+?) (?:in|into|inside|on|onto) (.+)$/, (m) => withObj(m[1], (id) => { const t = resolve(m[2]); return putIn(id, t.id); })],
+    [/^(?:replace|change|fix|repair|swap) (?:the )?(?:fuse|fuses|fuse box|box|fusebox|power)$/, () => putIn("fuse", "fusebox")],
+    [/^(?:use|install) (?:the )?(?:spare |new )?fuse$/, () => putIn("fuse", "fusebox")],
+    [/^(?:remove|unscrew|pull off|take off|lift) (.+?)(?: from .+| off .+)?$/, (m) => /sheet|cover|cloth/.test(m[1]) ? removeSheet() : withObj(m[1], take)],
+    [/^(?:uncover|unveil) (.+)$/, () => removeSheet()],
+    [/^(?:aim|point|turn|push|swing|direct|wheel|roll|move|shine|focus|rotate) (.+?)(?: (?:at|to|toward|towards|on|onto|into|in) (.+))?$/, (m) => {
+      if (/lamp|arc|light|beam|searchlight|stand|machine/.test(m[1])) return aim(m[2]);
+      if (/flashlight|torch|lantern|candle/.test(m[1]) && S.room === "workshop") { say(`Your little light vanishes into the seam like a stone into a well. You need something far brighter.`); return true; }
+      return withObj(m[1], () => { say("Nothing useful happens."); return false; });
+    }],
+    [/^(?:seal|burn|close|shut|destroy|fill) (?:the )?(?:seam|crack|hole|opening|wall)$/, () => S.room === "workshop" ? (S.lampOn ? aim() : (say(`With what? Father's notes said the arc lamp, turned full upon it.`), false)) : (say("You can't see that here."), false)],
+    [/^(?:show|hold|hold up|raise|display|clutch|grip) (.+?)(?: to .+)?$/, (m) => /watch/.test(m[1]) ? show() : withObj(m[1], (id) => { say(`You hold up ${ITEMS[id].a}. Nothing happens.`); return true; })],
+    [/^(?:open|wind) watch$/, () => show()],
+    [/^(?:say|shout|yell|scream|whisper|answer|reply|call out)(?: to .+?)? (.+)$/, (m) => sayWords(m[1])],
+    [/^(?:no|never|you are not my father|you re not my father|youre not my father|liar|go away|leave me alone)$/, (m) => sayWords(m[0] === "no" ? "no" : m[0])],
+    [/^(?:yes|father|dad|daddy|im coming|i m coming)$/, (m) => sayWords(m[0])],
+    [/^listen$/, () => { say(S.room === "workshop" && S.flags.voiceStarted ? `The voice, patient and loving and wrong.` : `Rain. The clock. And under them, sometimes, something like breathing.`); return true; }],
+    [/^(?:smell|sniff)$/, () => { say(`Dust, damp, and very faintly, his pipe tobacco.`); return true; }],
+    [/^(?:sit|sit down|sit in chair|sit in armchair)$/, () => { say(`You sit for a moment. The feeling of being watched doesn't go away.`); return true; }],
+    [/^(?:sleep|lie down)$/, () => { say(`Not tonight. Not in the dark.`); return false; }],
+    [/^(?:cry|weep|sob)$/, () => { say(`You let yourself, for a moment. Then you wipe your eyes. He'd want you to keep moving.`); return true; }],
+    [/^(?:pray)$/, () => { say(`You whisper the words he taught you. The dark doesn't seem impressed, but you feel steadier.`); return true; }],
+    [/^(?:leave|exit|out|go out|escape|run away|flee)$/, () => { say(S.room === "workshop" ? "WEST takes you back to the cellar." : `You won't run. Not from Father's house.`); return false; }],
+    [/^use (.+)$/, (m) => withObj(m[1], (id) => {
+      if (id === "phone") return call("");
+      if (id === "key") return open("studyDoor");
+      if (id === "matchbook") return light("matchbook");
+      if (["candle", "lantern"].includes(id)) return light(id);
+      if (id === "flashlight") return turnOn(id);
+      if (id === "fuse") return putIn("fuse", "fusebox");
+      if (id === "arcLamp") return S.lampOn ? aim() : lampOn();
+      if (id === "watch") return show();
+      if (ITEMS[id].switchFor) return turnOn(id);
+      say(`Try a more specific verb, like OPEN, TAKE, READ or TURN ON.`); return false;
+    })],
+  ];
+
+  const META = /^(?:undo|restart|save|restore|load|again|g)$/;
+
+  function dispatch(cmd) {
+    for (const [re, fn] of RULES) {
+      const m = cmd.match(re);
+      if (m) return fn(m);
+    }
+    say(`That's not something you can do here. (Type HELP for a list of commands, or HINT if you're stuck.)`);
+    return false;
+  }
+
+  let lastCmd = "";
+  function run(raw) {
+    const parts = raw.split(/\s*(?:\.|;|\bthen\b|,\s*then\b)\s*/i).filter((p) => p.trim());
+    for (const part of parts) {
+      let cmd = clean(part);
+      if (!cmd) continue;
+      say(part.trim(), "cmd");
+      if (cmd === "again" || cmd === "g") { if (!lastCmd) { say("Nothing to repeat."); continue; } cmd = lastCmd; }
+      else if (!META.test(cmd)) lastCmd = cmd;
+      if (META.test(cmd)) { meta(cmd); continue; }
+      if (S.over) { say(`The story is over. Type RESTART${S.over === "dead" ? ", UNDO" : ""} or RESTORE.`, "note"); continue; }
+      history.push(JSON.stringify(S));
+      if (history.length > 60) history.shift();
+      const took = dispatch(cmd);
+      if (took === false) history.pop();
+      else if (!S.over) tick();
+      if (S.over) break;
+    }
+    flush();
+    render();
+  }
+
+  function meta(cmd) {
+    if (cmd === "undo") {
+      if (!history.length) { say("You can't undo any further.", "note"); return; }
+      S = JSON.parse(history.pop());
+      say("[Previous turn undone.]", "note");
+      look();
+    } else if (cmd === "restart") {
+      if (!S.flags.confirmRestart && !S.over && S.turn > 0) { S.flags.confirmRestart = true; say("Type RESTART again to begin a new game. Your current progress will be lost.", "note"); return; }
+      start(true);
+    } else if (cmd === "save") {
+      try { localStorage.setItem("shadowpeople-save", JSON.stringify(S)); say("[Game saved in this browser.]", "note"); }
+      catch (e) { say("[Saving isn't available in this browser.]", "note"); }
+    } else if (cmd === "restore" || cmd === "load") {
+      let data = null;
+      try { data = JSON.parse(localStorage.getItem("shadowpeople-save")); } catch (e) {}
+      if (!data) { say("[There's no saved game in this browser.]", "note"); return; }
+      S = data; history = [];
+      say("[Saved game restored.]", "note");
+      look();
+    }
+    if (cmd !== "restart") S.flags.confirmRestart = false;
+  }
+
+  /* ================= RENDER ================= */
+  const $ = (id) => document.getElementById(id);
+  function render() {
+    const lit = isLit();
+    document.body.classList.toggle("dark", !lit);
+    document.documentElement.style.setProperty("--pool", String(Math.max(0, 1 - S.dread * 0.25)));
+    $("status").innerHTML = `<span><b>${lit ? ROOMS[S.room].name.replace(/^The /, "") : "Darkness"}</b></span><span>Score <b>${S.score}</b>/${MAX}</span><span>Turn <b>${S.turn}</b></span>`;
+    $("lightLabel").textContent = S.over === "won" ? "Dawn" : lit ? (danger() ? "Barely lit" : "Lit") : "Dark";
+    $("pips").innerHTML = [1, 2, 3, 4].map((i) => `<span class="pip ${S.dread >= i ? "on" : ""} ${S.dread >= 3 ? "hot" : ""}"></span>`).join("");
+    $("lightNote").textContent = S.over === "won" ? "The house is quiet." : S.dread === 0 ? (lit ? "The shadows keep their distance." : "Something is waking in the dark.") : S.dread >= 3 ? "They are on you. Find light now." : "Something is coming closer.";
+    const inv = Object.keys(ITEMS).filter(carried);
+    $("inv").innerHTML = inv.length ? inv.map((k) => {
+      let tag = "";
+      if (k === "candle") tag = S.lit.candle ? `lit · ${S.fuel.candle}` : S.fuel.candle <= 0 ? "spent" : "";
+      if (k === "flashlight") tag = S.lit.flashlight ? `on · ${S.fuel.flashlight}` : S.fuel.flashlight <= 0 ? "dead" : "";
+      if (k === "lantern" && S.lit.lantern) tag = "lit";
+      if (k === "matchbook") tag = `${S.matches} left`;
+      return `<li><span>${esc(cap(ITEMS[k].a))}</span>${tag ? `<small>${tag}</small>` : ""}</li>`;
+    }).join("") : `<li class="none">Nothing yet</li>`;
+    const ex = ROOMS[S.room].exits;
+    document.querySelectorAll("#compass [data-cmd]").forEach((b) => {
+      const d = DIR[b.dataset.cmd];
+      if (d) b.disabled = !(ex[d] || (S.room === "workshop" && d === "e"));
+    });
+  }
+
+  /* ================= BOOT ================= */
+  function intro() {
+    say("A tale of the Hall of Fantasy, retold", "title");
+    say(`Three weeks ago they buried your father, Edmund Ashcombe. The doctor called it heart failure. They found him at the foot of the cellar stairs, eyes wide open, every light in the house blazing except the one in the cellar.
+
+You don't believe in heart failure. Not after the things he whispered to you at the end, about the dark and what moves in it.
+
+Tonight the rain hasn't stopped since dusk. You are alone in the house, and you have left only one lamp burning. Several times now you've had the feeling that someone, or something, is watching you.`);
+    look();
+    say(`(New to text adventures? Type HELP. Stuck? Type HINT.)`, "note");
+  }
+
+  function start(fresh_) {
+    S = fresh(); history = [];
+    if (fresh_) logEl.innerHTML = "";
+    intro(); flush(); render();
+  }
+
+  // input
+  const input = $("cmd");
+  const cmdHist = []; let hIdx = 0;
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = input.value.trim();
+    if (!v) return;
+    cmdHist.push(v); hIdx = cmdHist.length;
+    input.value = "";
+    run(v);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp" && hIdx > 0) { hIdx--; input.value = cmdHist[hIdx]; e.preventDefault(); }
+    if (e.key === "ArrowDown") { hIdx = Math.min(cmdHist.length, hIdx + 1); input.value = cmdHist[hIdx] || ""; e.preventDefault(); }
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-cmd]");
+    if (!b || b.disabled) return;
+    run(b.dataset.cmd);
+    if (window.matchMedia("(min-width: 801px)").matches) input.focus();
+  });
+
+  function boot(data) {
+    if (data && data.S) {
+      S = data.S; history = data.history || [];
+      logEl.innerHTML = data.log || "";
+      logEl.scrollTop = logEl.scrollHeight;
+      render();
+    } else start(false);
+  }
+  window.claude?.hot?.snapshot?.(() => ({ S, history, log: logEl.innerHTML }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+  window.__shadow = { run, get S() { return S; } };
+})();
+</script>
+</body>
+</html>
