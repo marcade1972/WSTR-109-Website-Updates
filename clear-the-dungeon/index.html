@@ -107,7 +107,7 @@ h1 small { display: block; font-family: var(--body); font-size: .8rem; letter-sp
 .lair.valid.finish { border-color: var(--torch); box-shadow: 0 0 0 3px var(--torch-dim), 0 0 26px var(--torch-dim); }
 .lair.invalid { opacity: .55; }
 .lair-head { display: flex; justify-content: space-between; gap: 4px; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.stack { position: relative; width: 100%; max-width: 150px; margin: 0 auto; }
+.stack { position: relative; width: clamp(70px, 18vw, 104px); max-width: 100%; margin: 0 auto; }
 .stack .back {
   position: absolute; left: 0; right: 0;
   aspect-ratio: 5 / 7;
@@ -118,7 +118,7 @@ h1 small { display: block; font-family: var(--body); font-size: .8rem; letter-sp
 .stack .card { position: relative; }
 .cleared {
   aspect-ratio: 5 / 7;
-  width: 100%; max-width: 150px; margin: 0 auto;
+  width: clamp(70px, 18vw, 104px); max-width: 100%; margin: 0 auto;
   display: grid; place-items: center;
   border: 1px dashed var(--seam);
   border-radius: 7px;
@@ -156,11 +156,10 @@ h1 small { display: block; font-family: var(--body); font-size: .8rem; letter-sp
   background:
     radial-gradient(circle at 50% 42%, rgba(163,48,43,.12), transparent 60%),
     linear-gradient(160deg, var(--parch), #e1d0aa);
-  grid-template-rows: 1fr auto auto;
-  padding-block: 12cqi 8cqi;
+  grid-template-rows: minmax(0, 1fr) auto auto;
 }
-.card.monster .mletter { font-family: var(--display); font-size: 58cqi; line-height: .8; align-self: center; }
-.card.monster .mname { font-size: max(10px, 12cqi); letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+.card.monster .mletter { font-family: var(--display); font-size: 58cqi; line-height: .8; align-self: center; padding-top: 14cqi; }
+.card.monster .mname { padding-bottom: 9cqi; font-size: max(10px, 12cqi); letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
 .card.monster .mpow {
   position: absolute; top: 5%; right: 6%;
   font-family: var(--num); font-weight: 700; font-size: max(11px, 14cqi);
