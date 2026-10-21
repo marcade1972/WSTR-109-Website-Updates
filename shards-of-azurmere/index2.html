@@ -1,0 +1,2231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shards of Azurmere</title>
+<meta name="author" content="Marcus Draper">
+<meta name="description" content="An 8-bit dungeon-crawl adventure: roll four-sided dice, explore dungeons, solve puzzles and gather the Prism Shards. By Marcus Draper for deskatur.com.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: a little console. The room screen sits on the left with the field controls (or the battle panel) under it; the hero sheet sits on the right, and drops below on phones. */
+:root {
+  color-scheme: dark;
+  --bg: #120f1f;
+  --panel: #1d1934;
+  --panel2: #262046;
+  --edge: #4a4374;
+  --ink: #f4ecd8;
+  --muted: #a49cc4;
+  --gold: #f2c14e;
+  --azure: #3ab0f0;
+  --heart: #e8404a;
+  --energy: #f7d04a;
+  --good: #6ad06a;
+  --bad: #ff6a5a;
+  --pix: "Press Start 2P", ui-monospace, monospace;
+  --body: "VT323", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  background-image: radial-gradient(circle at 50% -10%, #2a2258 0, transparent 60%);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 20px;
+  line-height: 1.25;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font-family: var(--pix); cursor: pointer; }
+a { color: var(--azure); }
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.credit {
+  font-family: var(--pix);
+  font-size: 9px;
+  line-height: 1.8;
+  color: var(--muted);
+  text-align: center;
+  padding: 6px 0 2px;
+  border-top: 2px solid var(--edge);
+}
+.credit b { color: var(--ink); font-weight: normal; }
+.credit a { color: var(--gold); }
+
+/* pixel boxes */
+.box {
+  background: var(--panel);
+  border: 4px solid var(--edge);
+  box-shadow: inset 0 0 0 2px #0c0a16, 4px 4px 0 #0a0814;
+  border-radius: 0;
+}
+.btn {
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--panel2);
+  border: 3px solid var(--edge);
+  padding: 10px 12px;
+  box-shadow: 3px 3px 0 #0a0814;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #0a0814; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: #3a2f7a; border-color: var(--gold); color: var(--gold); }
+.btn.small { font-size: 9px; padding: 7px 8px; }
+.btn:focus-visible, .chip:focus-visible, .slot:focus-visible { outline: 3px solid var(--azure); outline-offset: 2px; }
+
+/* ---------- title ---------- */
+#scrTitle { flex: 1; display: grid; place-items: center; text-align: center; }
+.titlecard { padding: 34px 22px 26px; max-width: 640px; width: 100%; }
+.logo { font-family: var(--pix); line-height: 1.15; margin: 0; }
+.logo .a { display: block; font-size: clamp(16px, 4vw, 26px); color: var(--ink); letter-spacing: 2px; }
+.logo .b { display: block; font-size: clamp(30px, 8.4vw, 58px); color: var(--azure); text-shadow: 4px 4px 0 #0b3a66, 0 0 22px rgba(58,176,240,.35); letter-spacing: 3px; margin-top: 8px; }
+.tag { color: var(--muted); font-size: 22px; margin: 18px auto 8px; max-width: 30em; }
+.titlebtns { display: flex; flex-direction: column; gap: 12px; align-items: center; margin-top: 22px; }
+.titlebtns .btn { min-width: 250px; font-size: 12px; }
+.byline { font-family: var(--pix); font-size: 10px; color: var(--gold); margin-top: 26px; line-height: 1.9; }
+#titleArt { width: 192px; height: 64px; image-rendering: pixelated; margin-top: 18px; }
+
+/* ---------- creation ---------- */
+#scrCreate { flex: 1; }
+.create { padding: 18px; display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
+.create h2 { font-family: var(--pix); font-size: 15px; color: var(--gold); margin: 0 0 4px; }
+.create h3 { font-family: var(--pix); font-size: 10px; color: var(--azure); margin: 18px 0 8px; letter-spacing: 1px; }
+.create .hint { color: var(--muted); margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-family: var(--body); font-size: 19px; text-align: left; line-height: 1.1;
+  color: var(--ink); background: var(--panel2); border: 3px solid var(--edge);
+  padding: 7px 10px; min-width: 150px; flex: 1 1 150px; cursor: pointer;
+}
+.chip b { font-family: var(--pix); font-size: 9px; display: block; margin-bottom: 4px; color: var(--ink); }
+.chip small { color: var(--muted); font-size: 17px; }
+.chip[aria-pressed="true"] { border-color: var(--gold); background: #332a63; }
+.chip[aria-pressed="true"] b { color: var(--gold); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw { width: 28px; height: 28px; border: 3px solid #0c0a16; cursor: pointer; padding: 0; }
+.sw[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 1px; }
+.namerow { display: flex; gap: 8px; }
+input[type=text] {
+  font-family: var(--pix); font-size: 13px; color: var(--ink); background: #0e0b1b;
+  border: 3px solid var(--edge); padding: 10px; flex: 1; min-width: 0;
+}
+input[type=text]:focus { outline: none; border-color: var(--gold); }
+.attrs { display: grid; gap: 8px; }
+.attr { display: grid; grid-template-columns: 100px 1fr auto; align-items: center; gap: 8px; background: var(--panel2); border: 3px solid var(--edge); padding: 6px 10px; }
+.attr b { font-family: var(--pix); font-size: 10px; }
+.attr span { color: var(--muted); font-size: 17px; }
+.attr .val { font-family: var(--pix); font-size: 16px; color: var(--gold); min-width: 2ch; text-align: center; }
+.attr .pick { display: flex; gap: 4px; }
+.attr .pick button { font-size: 10px; padding: 6px 7px; background: #0e0b1b; color: var(--ink); border: 2px solid var(--edge); }
+.attr .pick button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.preview { text-align: center; padding: 16px; position: sticky; top: 12px; align-self: start; }
+#pv { width: 160px; height: 160px; image-rendering: pixelated; background: #6abe50; border: 4px solid #0c0a16; }
+.pvname { font-family: var(--pix); font-size: 13px; margin: 12px 0 4px; color: var(--gold); word-break: break-word; }
+.pvline { color: var(--muted); font-size: 18px; }
+
+/* ---------- game ---------- */
+#scrGame { flex: 1; }
+.game { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; align-items: start; }
+.left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; }
+.loc { font-family: var(--pix); font-size: 11px; color: var(--gold); }
+.loc small { display: block; color: var(--muted); font-size: 8px; margin-top: 5px; }
+.bar .tools { display: flex; gap: 6px; }
+.stage { position: relative; line-height: 0; }
+#cv { width: 100%; height: auto; aspect-ratio: 15 / 11; image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #000; border: 4px solid #0c0a16; box-shadow: 0 0 0 4px var(--edge), 6px 6px 0 4px #0a0814; }
+.flash { position: absolute; inset: 4px; background: rgba(232,64,74,.45); pointer-events: none; opacity: 0; transition: opacity .25s; }
+.flash.on { opacity: 1; transition: none; }
+
+/* field console */
+.console { padding: 10px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+#log { min-height: 84px; max-height: 120px; overflow-y: auto; font-size: 19px; display: flex; flex-direction: column; gap: 3px; }
+#log p { margin: 0; color: var(--muted); }
+#log p:last-child { color: var(--ink); }
+#log .gold { color: var(--gold); } #log .bad { color: var(--bad); } #log .good { color: var(--good); } #log .az { color: var(--azure); }
+.pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; }
+.pad button { font-size: 14px; padding: 0; background: var(--panel2); color: var(--ink); border: 3px solid var(--edge); box-shadow: 2px 2px 0 #0a0814; touch-action: none; user-select: none; }
+.pad button:active { background: #3a2f7a; }
+.pad .c { background: #3a2f7a; color: var(--gold); font-size: 9px; }
+.fieldacts { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 1 / -1; }
+.keys { color: var(--muted); font-size: 16px; grid-column: 1 / -1; margin: -4px 0 0; }
+
+/* battle panel */
+#battle { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.foes { display: flex; gap: 8px; flex-wrap: wrap; }
+.foe { background: #0e0b1b; border: 3px solid var(--edge); padding: 6px 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1 1 180px; color: var(--ink); font-family: var(--body); font-size: 18px; text-align: left; }
+.foe[aria-pressed="true"] { border-color: var(--gold); }
+.foe canvas { width: 48px; height: 48px; image-rendering: pixelated; flex: none; }
+.foe .fn { font-family: var(--pix); font-size: 9px; display: block; margin-bottom: 4px; }
+.foe .tags { color: var(--azure); font-size: 16px; }
+.pips { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
+.pips img { width: 14px; height: 14px; image-rendering: pixelated; }
+.intent { background: #2a1430; border: 3px solid #6a2a5a; padding: 6px 10px; font-size: 19px; color: #ffd6e8; }
+.tray { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 48px; }
+.die { width: 42px; height: 42px; image-rendering: pixelated; }
+.die.dim { opacity: .35; }
+.verdict { font-family: var(--pix); font-size: 10px; line-height: 1.6; }
+.verdict.g { color: var(--good); } .verdict.m { color: var(--gold); } .verdict.f { color: var(--bad); }
+#clog { max-height: 110px; overflow-y: auto; font-size: 18px; display: flex; flex-direction: column; gap: 2px; }
+#clog p { margin: 0; color: var(--muted); }
+#clog p:nth-last-child(-n+2) { color: var(--ink); }
+#clog .bad { color: var(--bad); } #clog .good { color: var(--good); } #clog .gold { color: var(--gold); }
+.acts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.acts .btn { font-size: 9px; padding: 10px 4px; }
+.acts .btn::before { content: "▶ "; color: var(--azure); }
+.sub { background: #0e0b1b; border: 3px solid var(--gold); padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sub p { margin: 0 0 4px; flex-basis: 100%; font-size: 18px; }
+.sub .btn { display: inline-flex; gap: 6px; align-items: center; }
+.sub .btn img { width: 16px; height: 16px; image-rendering: pixelated; }
+
+/* hero sheet */
+.sheet { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.sh-top { display: grid; grid-template-columns: 1fr 124px; gap: 8px; align-items: center; }
+.sh-name { font-family: var(--pix); font-size: 12px; color: var(--gold); word-break: break-word; line-height: 1.5; }
+.sh-kin { color: var(--muted); font-size: 18px; }
+.tri { width: 124px; height: 108px; }
+.sh-h { font-family: var(--pix); font-size: 9px; color: var(--azure); margin: 0 0 6px; letter-spacing: 1px; display: flex; justify-content: space-between; }
+.sh-h span { color: var(--muted); }
+.icons { display: flex; flex-wrap: wrap; gap: 3px; }
+.icons img { width: 20px; height: 20px; image-rendering: pixelated; }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.slot { aspect-ratio: 1; background: #0e0b1b; border: 3px solid var(--edge); display: grid; place-items: center; padding: 0; position: relative; }
+.slot img { width: 70%; height: 70%; image-rendering: pixelated; }
+.slot.locked { opacity: .25; cursor: default; }
+.slot .n { position: absolute; right: 2px; bottom: 1px; font-family: var(--pix); font-size: 8px; color: var(--gold); }
+.counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.count { background: #0e0b1b; border: 3px solid var(--edge); padding: 4px 6px; display: flex; align-items: center; gap: 6px; font-family: var(--pix); font-size: 10px; color: var(--ink); }
+.count img { width: 18px; height: 18px; image-rendering: pixelated; }
+button.count:hover:not(:disabled) { border-color: var(--gold); }
+button.count:disabled { opacity: .55; cursor: default; }
+.sh-weap { color: var(--muted); font-size: 17px; }
+#mini { width: 100%; height: auto; image-rendering: pixelated; background: #0e0b1b; border: 3px solid var(--edge); }
+
+/* dialog */
+.modal { position: fixed; inset: 0; background: rgba(8,6,16,.72); display: grid; place-items: center; padding: 16px; z-index: 20; }
+.dlg { max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; padding: 16px 16px 14px; }
+.dlg h2 { font-family: var(--pix); font-size: 13px; color: var(--gold); margin: 0 0 12px; line-height: 1.5; display: flex; gap: 10px; align-items: center; }
+.dlg h2 img { width: 32px; height: 32px; image-rendering: pixelated; }
+.dlg .txt { font-size: 21px; }
+.dlg .txt p { margin: 0 0 10px; }
+.dlg .txt b { color: var(--gold); font-weight: normal; }
+.dlg .txt em { color: var(--azure); font-style: normal; }
+.dlg .txt ul { margin: 0 0 10px; padding-left: 20px; }
+.dlg .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.shoplist { display: grid; gap: 6px; }
+.shopitem { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; background: #0e0b1b; border: 3px solid var(--edge); padding: 6px 8px; font-size: 18px; }
+.shopitem img { width: 28px; height: 28px; image-rendering: pixelated; }
+.shopitem b { font-family: var(--pix); font-size: 9px; display: block; margin-bottom: 3px; color: var(--ink); }
+.shopitem span { color: var(--muted); }
+
+@media (max-width: 900px) {
+  .game { grid-template-columns: 1fr; }
+  .create { grid-template-columns: 1fr; }
+  .preview { position: static; order: -1; display: flex; align-items: center; gap: 14px; text-align: left; padding: 12px; }
+  #pv { width: 96px; height: 96px; }
+}
+@media (max-width: 520px) {
+  body { font-size: 19px; }
+  .console { grid-template-columns: 1fr; }
+  .pad { justify-self: center; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); }
+  .acts { grid-template-columns: repeat(3, 1fr); }
+  .acts .btn { font-size: 8px; }
+  .chip { min-width: 130px; }
+  .attr { grid-template-columns: 80px 1fr; }
+  .attr .pick { grid-column: 1 / -1; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TITLE -->
+  <section id="scrTitle">
+    <div class="box titlecard">
+      <h1 class="logo"><span class="a">SHARDS OF</span><span class="b">AZURMERE</span></h1>
+      <canvas id="titleArt" width="96" height="32" aria-hidden="true"></canvas>
+      <p class="tag">Three Prism Shards. Four dungeons. One hero, a handful of four-sided dice, and a Hollow King who must be stopped.</p>
+      <div class="titlebtns">
+        <button class="btn primary" id="bNew">New Adventure</button>
+        <button class="btn" id="bCont" hidden>Continue</button>
+        <button class="btn" id="bHelp1">How to Play</button>
+      </div>
+      <p class="byline">A GAME BY MARCUS DRAPER<br><a href="https://www.deskatur.com" target="_blank" rel="noopener">WWW.DESKATUR.COM</a></p>
+    </div>
+  </section>
+
+  <!-- CREATE -->
+  <section id="scrCreate" hidden>
+    <div class="box create">
+      <div>
+        <h2>CREATE YOUR HERO</h2>
+        <p class="hint">Fill in your hero sheet. Every choice changes how you play.</p>
+
+        <h3>NAME</h3>
+        <div class="namerow"><input type="text" id="cName" maxlength="12" autocomplete="off" aria-label="Hero name"><button class="btn small" id="cRollName">Roll</button></div>
+
+        <h3>KIN</h3>
+        <div class="chips" id="cKin"></div>
+
+        <h3>ATTRIBUTES · ASSIGN 3, 2 AND 1</h3>
+        <div class="attrs" id="cAttrs"></div>
+
+        <h3>SPECIAL ITEM</h3>
+        <div class="chips" id="cItem"></div>
+
+        <h3>HAIR</h3>
+        <div class="swatches" id="cHair"></div>
+        <h3>CLOTHES</h3>
+        <div class="swatches" id="cClothes"></div>
+      </div>
+      <div class="box preview">
+        <canvas id="pv" width="16" height="16" aria-label="Hero preview"></canvas>
+        <div>
+          <div class="pvname" id="pvName">HERO</div>
+          <div class="pvline" id="pvLine"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+            <button class="btn" id="cBack">Back</button>
+            <button class="btn primary" id="cStart">Begin!</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="scrGame" hidden>
+    <div class="game">
+      <div class="left">
+        <div class="box bar">
+          <div class="loc" id="loc">—</div>
+          <div class="tools">
+            <button class="btn small" id="bSound" aria-pressed="true">♪ On</button>
+            <button class="btn small" id="bHelp2">Rules</button>
+            <button class="btn small" id="bMenu">Menu</button>
+          </div>
+        </div>
+        <div class="stage">
+          <canvas id="cv" width="240" height="176" aria-label="Game screen"></canvas>
+          <div class="flash" id="flash"></div>
+        </div>
+
+        <div class="box console" id="field">
+          <div id="log" aria-live="polite"></div>
+          <div class="pad" aria-label="Move">
+            <span></span><button data-d="n" aria-label="Up">▲</button><span></span>
+            <button data-d="w" aria-label="Left">◀</button><button class="c" id="bAct" aria-label="Interact">ACT</button><button data-d="e" aria-label="Right">▶</button>
+            <span></span><button data-d="s" aria-label="Down">▼</button><span></span>
+          </div>
+          <div class="fieldacts">
+            <button class="btn small" id="bInspect">▶ Inspect</button>
+            <button class="btn small" id="bSpecial">▶ Kin Special</button>
+          </div>
+          <p class="keys">Arrows/WASD move · walk into things to use them · Space acts · I inspects · K kin special</p>
+        </div>
+
+        <div class="box" id="battle" hidden>
+          <div class="foes" id="foes"></div>
+          <div class="intent" id="intent"></div>
+          <div class="tray" id="tray"></div>
+          <div id="clog" aria-live="polite"></div>
+          <div class="sub" id="sub" hidden></div>
+          <div class="acts" id="acts">
+            <button class="btn" data-a="attack">Attack</button>
+            <button class="btn" data-a="defend">Defend</button>
+            <button class="btn" data-a="item">Use Item</button>
+            <button class="btn" data-a="inspect">Inspect</button>
+            <button class="btn" data-a="escape">Escape</button>
+            <button class="btn" data-a="talk">Talk</button>
+            <button class="btn" data-a="other">Other</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="box sheet" aria-label="Hero sheet">
+        <div class="sh-top">
+          <div>
+            <div class="sh-name" id="shName">HERO</div>
+            <div class="sh-kin" id="shKin"></div>
+            <div class="sh-weap" id="shWeap"></div>
+          </div>
+          <svg class="tri" viewBox="0 0 124 108" id="tri" aria-label="Attributes"></svg>
+        </div>
+        <div><div class="sh-h">HEARTS <span id="shHn"></span></div><div class="icons" id="shHearts"></div></div>
+        <div><div class="sh-h">ENERGY <span id="shEn"></span></div><div class="icons" id="shEnergy"></div></div>
+        <div><div class="sh-h">INVENTORY <span id="shPouch"></span></div><div class="slots" id="shSlots"></div></div>
+        <div class="counts" id="shCounts"></div>
+        <div><div class="sh-h">MAP <span id="shFloor"></span></div><canvas id="mini" width="150" height="90"></canvas></div>
+      </aside>
+    </div>
+  </section>
+
+  <footer class="credit">SHARDS OF AZURMERE · A game by <b>Marcus Draper</b> · <a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a></footer>
+</div>
+
+<div class="modal" id="modal" hidden><div class="box dlg" role="dialog" aria-modal="true" aria-labelledby="dlgT"><h2 id="dlgT"></h2><div class="txt" id="dlgB"></div><div class="row" id="dlgR"></div></div></div>
+
+<script>
+'use strict';
+/* ============================================================
+   SHARDS OF AZURMERE
+   Rules engine: roll a pool of d4s equal to an attribute and keep
+   the highest. 1–2 fail (lose a heart when dangerous), 3 succeed
+   but still lose a heart (unless defending), 4 clean success,
+   each extra 4 adds an extra success.
+   ============================================================ */
+
+const TS = 16, GW = 15, GH = 11;
+const $ = s => document.querySelector(s);
+const rnd = n => Math.floor(Math.random() * n);
+const d4 = () => 1 + rnd(4);
+const pick = a => a[rnd(a.length)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ---------- palette & sprites (8×8, drawn at 2×) ---------- */
+const COLORS = [
+  ['Brown','#8a5a2b'],['Red','#d83a3a'],['Orange','#f08a2a'],['Yellow','#f2d03a'],
+  ['Lime','#a6e03a'],['Green','#3aa04a'],['Teal','#2a9a8a'],['Cyan','#4ad0e0'],
+  ['Blue','#3a6ad8'],['Indigo','#4a3aa8'],['Purple','#8a3ab8'],['Magenta','#d83ab0'],
+  ['Pink','#f29ac0'],['White','#f4f4f4'],['Grey','#8a8a8a'],['Black','#2a2a2a']
+];
+const K = '#1a1424';
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  r = clamp(Math.round(r * f), 0, 255); g = clamp(Math.round(g * f), 0, 255); b = clamp(Math.round(b * f), 0, 255);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+const SPR = {
+  hero:  ["..HHHH..",".HHHHHH.",".HSSSSH.",".SKSSKS.","..SSSS..",".cCCCCc.","S.CCCC.S","..B..B.."],
+  hero2: ["..HHHH..",".HHHHHH.",".HSSSSH.",".SKSSKS.","..SSSS..",".cCCCCc.","S.CCCC.S",".B....B."],
+  slime: ["........","...GG...","..GGGG..",".GKGGKG.",".GGGGGG.","GGGWGGGG","GgGGGGgG",".gggggg."],
+  rat:   ["........","........","...gg.g.","..gggggK","pggggggg",".ggggggp","..p..p..","........"],
+  skull: ["........","..WWWW..",".WWWWWW.",".WKWWKW.",".WWWWWW.","..WKKW..","..W.W.W.","........"],
+  bat:   ["........","P......P","PP.pp.PP","PPpRRpPP",".PPppPP.","..P..P..","........","........"],
+  jelly: ["..JJJJ..",".JJWJJJ.","JJJJJJJJ","JJjJJjJJ",".J.J.J.J","J.J.J.J.",".J...J..","........"],
+  squid: ["...QQ...","..QQQQ..",".QQQQQQ.",".QKQQKQ.","..QQQQ..",".Q.QQ.Q.","Q.Q..Q.Q","........"],
+  goblin:[".G....G.",".GGGGGG.",".GKGGKG.","..GWWG..","..bbbb..",".GbbbbG.","..b..b..",".GG..GG."],
+  skel:  ["..WWWW..",".WKWWKW.",".WWWWWW.","..WKKW..","...WW...",".WwWWwW.","..W..W..",".WW..WW."],
+  ghost: ["..WWWW..",".WWWWWW.","WWKWWKWW","WWKWWKWW","WWWWWWWW","WWWKKWWW","WWWWWWWW","W.WW.W.W"],
+  lizard:["...LLL..","..LYLLL.","..LLLL..",".lLLLl..","LlLLLlL.","..LLL...",".L.L.L..","L..L..LL"],
+  spider:["P.P..P.P",".P.PP.P.","..PPPP..","PPRPPRPP",".PPPPPP.","P.PPPP.P",".P....P.","P......P"],
+  knight:["..AAAA..",".AAYYAA.",".AKKKKA.",".AAAAAA.","YaAAAAaY",".aAAAAa.","..A..A..",".aa..aa."],
+  warden:[".AAAAAA.","AAWWWWAA","AWKWWKWA","AWWWWWWA",".AWKKWA.","AAAAAAAA","A.WRRW.A",".AA..AA."],
+  wyrm:  ["..BBB...",".BWKBB..",".BBBBBF.","..bBB.F.","...BBB..","..BBbB..",".BBb.BB.","BBb...BB"],
+  golem: ["..SSSS..",".SYSSYS.",".SSOOSS.","SSSSSSSS","SOSSSSOS","S.SOOS.S","..SS..SS",".ss..ss."],
+  king:  [".YYYYYY.",".Y.YY.Y.","..KKKK..",".KRKKRK.","..KKKK..",".PPPPPP.","PPpPPpPP","PP.PP.PP"],
+  duck:  ["........","..WWW...",".WKWWYY.","..WWW...",".WWWWWW.","WWWWWWW.",".WWWWW..","..Y..Y.."],
+  heart: [".RR..RR.","RWRRRRRR","RRRRRRRR","RRRRRRRR",".RRRRRR.","..RRRR..","...RR...","........"],
+  bolt:  ["....YY..","...YY...","..YY....",".YYYYYY.","....YY..","...YY...","..YY....",".Y......"],
+  gem:   ["...GG...","..GWGG..",".GWGGGG.","GGGGGGGG",".gGGGGg.","..gGGg..","...gg...","........"],
+  key:   ["..YYY...",".Y...Y..",".Y...Y..","..YYY...","...Y....","...YY...","...Y....","...YY..."],
+  bigkey:[".YYYY...","YY..YY..","YY..YY..",".YYYY...","..YY....","..YYYY..","..YY....","..YYYY.."],
+  meal:  ["...OOO..","..OOOOO.","..OWOOO.","..oOOOo.","...oOo..","..W.o...",".WW.....","........"],
+  snack: ["....g...","...g....",".RRRRR..","RWRRRRR.","RRRRRRR.","RRRRRRR.",".RRRRR..","..R.R..."],
+  shard: ["...WC...","...CC...","..CWCC..","..CCCC..",".CWCCcC.",".CCCCcc.","CCCCcccc","........"],
+  chest: [".bbbbbb.","bBBBBBBb","bBBBBBBb","YYYYYYYY","bBBKKBBb","bBBYYBBb","bBBBBBBb","bbbbbbbb"],
+  chesto:["bbbbbbbb","bKKKKKKb","bBBBBBBb","YYYYYYYY","bBBBBBBb","bBBBBBBb","bBBBBBBb","bbbbbbbb"],
+  pot:   ["..oooo..","...OO...",".OOOOOO.","OOWOOOOO","OOOOOOOO","OOOOOOOO",".oOOOOo.","..oooo.."],
+  torch: ["...YY...","..YRRY..","..RYYR..","...RR...","..bbbb..","...bb...","...bb...","..bbbb.."],
+  brz:   ["........","........","........","........","SSSSSSSS",".SssssS.","..SSSS..",".SSSSSS."],
+  sign:  ["........",".bbbbbb.",".bWWWWb.",".bKKKKb.",".bWWWWb.",".bbbbbb.","...bb...","...bb..."],
+  statue:["..SSSS..",".SSSSSS.",".SsSSsS.","..SSSS..",".SSSSSS.","SSSSSSSS","ssssssss","ssssssss"],
+  tree:  ["..GGGG..",".GGgGGG.","GGGGGgGG","GgGGGGGG",".GGGgGG.","..GGGG..","...bb...","..bbbb.."],
+  rock:  ["........","..SSSS..",".SSWSSS.","SSSSSSSs","SSSSSsSs","sSSSSSss",".ssssss.","........"],
+  boulder:["..ssss..",".sSSSSs.","sSWSSSSs","sSSSSSSs","sSSSSsSs","sSSSsSss",".ssssss.","........"],
+  bomb:  [".....Y..","....R.Y.","...KK...","..KKKK..",".KWKKKK.",".KKKKKK.",".KKKKKK.","..KKKK.."],
+  lantern:["...YY...","..Y..Y..",".bbbbbb.",".bYOOYb.",".bOYYOb.",".bYOOYb.",".bbbbbb.","........"],
+  bow:   ["..bb....","..b.b...","..b..b.W","..b...W.","..b..W..","..b.W...","..bW....","..bb...."],
+  boomer:["........",".YYYYYY.",".YOOOOY.",".YO.....",".YO.....",".YO.....",".YY.....","........"],
+  cape:  ["..RRRR..",".RRRRRR.",".RrRRrR.","RRrRRrRR","RRrRRrRR","RrRRRRrR","RRRRRRRR","R.R..R.R"],
+  hook:  [".g...g..","g.g.g.g.","...g....","...g....","...b....","...b....","...bb...","...b...."],
+  wand:  ["......CW",".....CCC","....bC..","...b....","..b.....",".b......","b.......","........"],
+  hammer:[".gggggg.",".gWgggg.",".gggggg.","...bb...","...bb...","...bb...","...bb...","...bb..."],
+  shield:[".YYYYYY.","YBWBBBBY","YBWBBBBY","YBBBBBBY","YBBBBBBY",".YBBBBY.","..YBBY..","...YY..."],
+  potion:["...ww...","...bb...","..wPPw..",".wPPPPw.",".PWPPPP.",".PPPPPP.",".PPPPPP.","..PPPP.."],
+  pouch: ["...YY...","..bbbb..",".bbbbbb.","bbbYYbbb","bbbbbbbb","bbbbbbbb",".bbbbbb.","........"],
+  sword: ["......W.",".....WW.","....WW..","...WW...",".YWW....","..Y.....",".b.Y....","b......."],
+  hcont: ["RR...RR.","RWRRRRRR","RRRYRRRR","RRYYYRRR",".RRYRRR.","..RRRR..","...RR...","........"],
+  econt: ["...YYY..","..YY.Y..",".YY.YY..","YYYYYYY.","...YY...","..YY....",".YY.....","Y......."],
+  fount: ["..CCCC..",".CWCCWC.","..CCCC..","SSSSSSSS","SCCCCCCS","SSSSSSSS",".SSSSSS.","..SSSS.."],
+  warp:  ["..CCCC..",".C....C.","C..WW..C","C.W..W.C","C.W..W.C","C..WW..C",".C....C.","..CCCC.."],
+  die:   ["...WW...","..WWWW..","..WWWW..",".WWWWWW.",".WWWWWW.","WWWWWWWW","WWWWWWWW","........"]
+};
+const SPAL = {
+  slime:{G:'#5ad06a',g:'#2f8a40',K,W:'#fff'}, fslime:{G:'#f07a2a',g:'#b03a1a',K,W:'#ffe7a0'},
+  rat:{g:'#9a8a8a',K,p:'#f29ac0'}, skull:{W:'#f4ecd8',K}, bat:{P:'#8a4ab8',p:'#4a2a6a',R:'#ff4a4a'},
+  jelly:{J:'#f29ad8',j:'#b05aa0',W:'#fff'}, squid:{Q:'#e86a4a',K}, goblin:{G:'#7ab83a',K,W:'#fff',b:'#8a5a2b'},
+  skel:{W:'#f4ecd8',w:'#a8a090',K}, ghost:{W:'#e8f4ff',K}, lizard:{L:'#4ab06a',l:'#2a7a44',Y:'#f2d03a'},
+  spider:{P:'#6a3a8a',R:'#ff4a4a'}, knight:{A:'#8a96b0',a:'#565e78',Y:'#f2c14e',K},
+  sentinel:{A:'#9aa4a0',a:'#6a7470',Y:'#c8c8b0',K:'#3a4440'},
+  warden:{A:'#7a8a78',W:'#f4ecd8',K,R:'#ff3a3a'}, wyrm:{B:'#2a7ad0',b:'#1a4a90',W:'#fff',K,F:'#7ae0f0'},
+  golem:{S:'#6a5a58',s:'#3a302e',Y:'#ffd23a',O:'#ff6a1a'}, king:{Y:'#f2c14e',K:'#20182e',R:'#ff2a4a',P:'#5a2a8a',p:'#3a1a5a'},
+  duck:{W:'#fff',K,Y:'#f2a03a'},
+  heart:{R:'#e8404a',W:'#ffc0c0'}, heartE:{R:'#3a2a3e',W:'#3a2a3e'}, heartO:{R:'#2a2236',W:'#2a2236'},
+  bolt:{Y:'#f7d04a'}, boltE:{Y:'#3a3a2e'},
+  gem:{G:'#4ae07a',g:'#2a9a4a',W:'#d0ffe0'}, key:{Y:'#f2c14e'}, bigkey:{Y:'#ff9a2a'},
+  meal:{O:'#d8823a',o:'#9a5220',W:'#fff'}, snack:{R:'#e8404a',W:'#ffc0c0',g:'#3aa04a'},
+  shard:{C:'#4ad0f0',c:'#2a7ad0',W:'#fff'}, chest:{b:'#5a3214',B:'#a8642a',Y:'#f2c14e',K},
+  pot:{o:'#7a3a1a',O:'#c8683a',W:'#f0b080'}, torch:{Y:'#ffe07a',R:'#ff6a1a',b:'#6a4a2a'},
+  brzOff:{S:'#7a7a80',s:'#3a3a40'}, sign:{b:'#7a4a1a',W:'#e8c890',K:'#7a4a1a'},
+  statue:{S:'#9aa4a0',s:'#6a7470'}, tree:{G:'#2f8a34',g:'#1f6a26',b:'#6a3e1a'},
+  rock:{S:'#8a7a68',s:'#5a4c3e',W:'#b8a890'}, boulder:{S:'#8a8478',s:'#4a4640',W:'#c8c0b0'},
+  bomb:{Y:'#ffe07a',R:'#ff6a1a',K:'#2a2a3a',W:'#8a8aa0'}, lantern:{Y:'#f2c14e',b:'#6a4a2a',O:'#ff8a2a'},
+  bow:{b:'#a8642a',W:'#e0e0e0'}, boomer:{Y:'#f2c14e',O:'#d8823a'}, cape:{R:'#c83a5a',r:'#8a1a3a'},
+  hook:{g:'#b0b0c0',b:'#7a4a1a'}, wand:{C:'#7ae0f0',W:'#fff',b:'#6a4a8a'}, hammer:{g:'#9a9aa8',W:'#e0e0f0',b:'#7a4a1a'},
+  shield:{Y:'#f2c14e',B:'#4a8ad8',W:'#d0f0ff'}, hpot:{w:'#d0e0f0',b:'#7a4a1a',P:'#e8404a',W:'#ffd0d0'},
+  epot:{w:'#d0e0f0',b:'#7a4a1a',P:'#f7d04a',W:'#fff6c0'}, pouch:{Y:'#f2c14e',b:'#8a5a2b'},
+  sword:{W:'#e8e8f0',Y:'#f2c14e',b:'#7a4a1a'}, hcont:{R:'#e8404a',W:'#ffc0c0',Y:'#f2c14e'}, econt:{Y:'#f7d04a'},
+  fount:{C:'#f29ad8',W:'#fff',S:'#9aa4a0'}, warp:{C:'#7ae0f0',W:'#fff'}
+};
+function drawSprite(ctx, name, pal, x, y, s = 2, flip = false) {
+  const rows = SPR[name]; if (!rows) return;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const ch = rows[r][flip ? 7 - c : c]; if (ch === '.') continue;
+    const col = pal[ch]; if (!col) continue;
+    ctx.fillStyle = col; ctx.fillRect(x + c * s, y + r * s, s, s);
+  }
+}
+const iconCache = {};
+function icon(name, palKey, scale = 4) {
+  const k = name + '|' + palKey + '|' + scale; if (iconCache[k]) return iconCache[k];
+  const c = document.createElement('canvas'); c.width = c.height = 8 * scale;
+  drawSprite(c.getContext('2d'), name, typeof palKey === 'string' ? SPAL[palKey] : palKey, 0, 0, scale);
+  return iconCache[k] = c.toDataURL();
+}
+function heroPal(h) {
+  const skin = KINS[h.kin].skin;
+  return { H: h.hair, S: skin, K, C: h.clothes, c: shade(h.clothes, .7), B: '#3a2416' };
+}
+
+/* ---------- rules data ---------- */
+const KINS = {
+  sylph:  { name:'Sylph', blurb:'Pointy-eared folk of the plains.', special:'Focus: spend 1 Energy to add +1D to your next roll.', weapon:'Sword', skin:'#f1c9a0' },
+  skyling:{ name:'Skyling', blurb:'Feathered folk of the cliffs.', special:'Glide: spend 1 Energy to sail over 2 tiles of pit, water or lava — or to flee a fight.', weapon:'Spear', skin:'#f0d890' },
+  stone:  { name:'Stoneborn', blurb:'Rock-skinned folk of the peaks. +1 Power, –1 Nerve.', special:'Stone Skin: spend 1 Energy to shrug off the next heart you would lose.', weapon:'Club', skin:'#a8a4a0', mods:{ power:1, nerve:-1 } },
+  tide:   { name:'Tidekin', blurb:'Finned folk of the lakes.', special:'Swim: spend 1 Energy to swim the water of a room. In battle: Riptide stuns a foe.', weapon:'Trident', skin:'#7fc8c0' },
+  sprig:  { name:'Sprigling', blurb:'Leafy folk of the woods. –1 Power, +1 Nerve.', special:'Stillness: spend 1 Energy to vanish and slip out of any normal fight.', weapon:'Dagger', skin:'#a6cf6a', mods:{ power:-1, nerve:1 } },
+  glitch: { name:'Glitchling', blurb:'Flickering folk from somewhere else.', special:'Glitch: spend 1 Energy so your next poor roll rerolls a die.', weapon:'Odd Blade', skin:'#c8a8f0' }
+};
+const ATTRS = [
+  ['power','POWER','attack, smash, hurl'],
+  ['nerve','NERVE','defend, dodge, escape'],
+  ['wits','WITS','inspect, shoot, talk']
+];
+const ITEMS = {
+  lantern: { name:'Lantern', icon:'lantern', pal:'lantern', desc:'Lights dark rooms and sets unlit braziers ablaze. Walk into a brazier to light it.', start:true },
+  bow:     { name:'Bow', icon:'bow', pal:'bow', desc:'Battle: shoot with WITS for 1 gem per arrow. From range, a roll of 3 costs you no heart.', start:true, battle:true },
+  boomer:  { name:'Boomerang', icon:'boomer', pal:'boomer', desc:'Battle: throw with WITS. A hit STUNS a normal foe, so it cannot hurt you this round.', start:true, battle:true },
+  cape:    { name:'Magic Cape', icon:'cape', pal:'cape', desc:'Battle: spend 1 Energy to be untouchable this round and the next.', start:true, battle:true },
+  hook:    { name:'Grapple Hook', icon:'hook', pal:'hook', desc:'Walk into a pit to zip across it to the far side.', key:true },
+  wand:    { name:'Frost Wand', icon:'wand', pal:'wand', desc:'Walk into water and spend 1 Energy to freeze an ice bridge. Battle: a WITS bolt that STUNS — or freezes a water beast solid.', key:true, battle:true },
+  hammer:  { name:'Big Hammer', icon:'hammer', pal:'hammer', desc:'Walk into boulders to smash them. Battle: a POWER swing that deals 2 to stone foes.', key:true, battle:true },
+  shield:  { name:'Mirror Shield', icon:'shield', pal:'shield', desc:'+1D on DEFEND rolls. A good defense reflects dark magic back at its caster.', key:true },
+  hpot:    { name:'Heart Potion', icon:'potion', pal:'hpot', desc:'Restores all hearts.', battle:true, field:true, drop:true },
+  epot:    { name:'Energy Potion', icon:'potion', pal:'epot', desc:'Restores all energy.', battle:true, field:true, drop:true }
+};
+const ENEMIES = {
+  rat:     { name:'Rat', spr:'rat', pal:'rat', hp:1, loot:true, weak:'Quick but flimsy. One good hit will do.' },
+  skull:   { name:'Skull', spr:'skull', pal:'skull', hp:1, loot:true, weak:'Smash it before it pulls itself back together!' },
+  bat:     { name:'Bat', spr:'bat', pal:'bat', hp:1, loot:true, weak:'It swoops in a loop — wait for it to dip.' },
+  slime:   { name:'Slime', spr:'slime', pal:'slime', hp:1, loot:true, weak:'Just jelly. Splat it.' },
+  fslime:  { name:'Fire Slime', spr:'slime', pal:'fslime', hp:1, loot:true, weak:'Hot jelly. Still jelly.' },
+  jelly:   { name:'Jellyfish', spr:'jelly', pal:'jelly', hp:1, elec:true, loot:true, weak:'Every other round it crackles with electricity. Never strike it then!' },
+  squid:   { name:'Squid', spr:'squid', pal:'squid', hp:1, dive:true, loot:true, weak:'It ducks under every other round. Strike when it surfaces.' },
+  goblin:  { name:'Goblin', spr:'goblin', pal:'goblin', hp:2, loot:true, weak:'Long arms, short temper. Its guard drops after it swings.' },
+  skel:    { name:'Skeleton', spr:'skel', pal:'skel', hp:2, reform:true, loot:true, weak:'When it falls, its skull keeps fighting. A crushing blow (two 4s) ends it for good.' },
+  ghost:   { name:'Ghost', spr:'ghost', pal:'ghost', hp:3, drain:true, loot:true, weak:'Its touch steals energy as well as hearts.' },
+  lizard:  { name:'Lizardkin', spr:'lizard', pal:'lizard', hp:3, loot:true, weak:'Scaly and stubborn. Wear it down.' },
+  spider:  { name:'Spider', spr:'spider', pal:'spider', hp:3, loot:true, weak:'It drops from the ceiling. Eight legs, one soft belly.' },
+  sentinel:{ name:'Sentinel', spr:'knight', pal:'sentinel', hp:3, stone:true, loot:true, weak:'Living stone armour. A hammer would crack it.' },
+  knight:  { name:'Hollow Knight', spr:'knight', pal:'knight', hp:5, loot:true, weak:'Plate armour, empty inside. Strike after you parry.' },
+  warden:  { name:'The Bone Warden', spr:'warden', pal:'warden', hp:5, boss:'warden', armor:3,
+    weak:'A red eye glows inside its ribcage. Each successful hit tears off a piece of armour (–1D for every piece left). Bombs rip off two.',
+    moves:{ special:'spins its rusty axe in a whirlwind!', attack:'swings its axe at you.', move:'grabs you and flings you across the crypt! (–1D this round)', guard:'hunkers behind its bone shield. (It can’t be hurt — or hurt you — this round.)' } },
+  wyrm:    { name:'The Tide Wyrm', spr:'wyrm', pal:'wyrm', hp:6, boss:'wyrm',
+    weak:'It slips under the water whenever you strike. Freeze the pool around it with a Frost Wand and it’s trapped and vulnerable.',
+    moves:{ special:'rears up and summons a crashing wave!', attack:'snaps its jaws at you.', move:'dives and bursts out somewhere else! (–1D this round)', guard:'sinks deep below the surface. (It can’t be hurt — or hurt you — this round.)' } },
+  golem:   { name:'The Magma Golem', spr:'golem', pal:'golem', hp:6, boss:'golem', stone:true,
+    weak:'Swords just clang off its crust. Only a Big Hammer or a bomb can crack it.',
+    moves:{ special:'slams down molten fists!', attack:'swings a burning arm.', move:'stomps — the cavern shakes! (–1D this round)', guard:'hardens its crust to black stone. (It can’t be hurt — or hurt you — this round.)' } },
+  king:    { name:'The Hollow King', spr:'king', pal:'king', hp:7, boss:'king',
+    weak:'Darkness shields him. When he hurls a shadow orb, DEFEND with a Mirror Shield to reflect it. That stuns him and lets your blows land.',
+    moves:{ special:'hurls a crackling shadow orb!', attack:'lashes out with a shadow claw.', move:'blinks across the hall! (–1D this round)', guard:'wraps himself in a cocoon of shadow. (He can’t be hurt — or hurt you — this round.)' } }
+};
+const NAMES = ['Arlo','Brisa','Corin','Dela','Evo','Fenn','Gisa','Halo','Ivo','Juno','Kesh','Lumi','Moro','Nyx','Odo','Pell'];
+
+/* ---------- world ---------- */
+const THEMES = {
+  town:   { out:1, floor:'#6abe50', dot:'#58a842', path:'#cdb27a', tree:'tree' },
+  wood:   { out:1, floor:'#4f9a48', dot:'#418a3c', path:'#a8925e', tree:'tree' },
+  mount:  { out:1, floor:'#b49a6a', dot:'#a08758', path:'#d0b888', tree:'rock' },
+  lake:   { out:1, floor:'#7cc860', dot:'#68b44e', path:'#b0864a', tree:'tree' },
+  barrier:{ out:1, floor:'#8aa86a', dot:'#78965a', path:'#c8b888', tree:'tree' },
+  glade:  { out:1, floor:'#5aa850', dot:'#4a9442', path:'#a8925e', tree:'tree' },
+  barrow: { floor:'#a8b08a', dot:'#949e78', wall:'#4f6e4f', wall2:'#344a36', top:'#6e8e64', path:'#7a8a62' },
+  spire:  { floor:'#a6dcec', dot:'#92cade', wall:'#3e8a9a', wall2:'#2a6a78', top:'#5aaabb', path:'#7ab8cc' },
+  grotto: { floor:'#e8c08a', dot:'#d6ac76', wall:'#6a9a9a', wall2:'#4a7272', top:'#86b4b4', path:'#c89a62' },
+  keep:   { floor:'#d6d6dc', dot:'#c4c4cc', wall:'#6a96a0', wall2:'#4a6e78', top:'#88b2ba', path:'#b84a5a' }
+};
+const DG = {
+  barrow:{ name:'Hollow Barrow', boss:'b9' },
+  spire: { name:'Mere Spire', boss:'s10' },
+  grotto:{ name:'Ember Grotto', boss:'g8' },
+  keep:  { name:'Azure Keep', boss:'k9' }
+};
+const DOORPOS = { n:[7,0], s:[7,10], w:[0,5], e:[14,5] };
+const INWARD  = { n:[7,1], s:[7,9],  w:[1,5], e:[13,5] };
+const OPP = { n:'s', s:'n', w:'e', e:'w' };
+const DIRV = { n:[0,-1], s:[0,1], w:[-1,0], e:[1,0] };
+
+/* Tile key — . floor  , path/rug  # wall/tree  ~ water  * ice  ^ lava  _ pit  v hidden pit trap
+   % vines  o boulder  C chest  P pot  H heart  Z energy  M meal  K key  D/U stairs  T torch
+   i/I brazier unlit/lit  R statue  S sign  N person  E monster  B boss  O dungeon mouth
+   h house  f flowers  Q barrier  p plate  k block  F fountain */
+const ROOMS = {
+  /* ---- overworld ---- */
+  town: { name:'Wrenwick Village', theme:'town', out:1, safe:1,
+    map:["f.hh.....hh.f","..hh.....hh..",".N.........N.","#...f...f...#","......S......","#...f...f...#","..hh.....hh..","..hhN...Nhh..","f..N........f"],
+    exits:{ n:{to:'barrier'}, s:{to:'wood'}, w:{to:'mount'}, e:{to:'lake'} },
+    npcs:['elder','shop','gambler','kid','duck'],
+    signs:['WRENWICK VILLAGE<br>North: Keep Approach · South: Gloomhollow Woods<br>West: Cinder Slopes · East: Mirrorwater Shore'] },
+  wood: { name:'Gloomhollow Woods', theme:'wood', out:1,
+    map:["#####...#####","##.........##","#..E.....#..#","#....##.....#","#.F..##..N..#","#.......E...#","##..#O#.....#","##.......f.##","#############"],
+    exits:{ n:{to:'town'} }, enter:'b1', npcs:['moss'], enemies:['slime','rat'],
+    inspect:'Mossy stones circle the dark doorway in the south-west. An old crypt — the Hollow Barrow.' },
+  mount: { name:'Cinder Slopes', theme:'mount', out:1,
+    map:["#^^^^^^^^^^^#","#^^^#O#^^^^^#","#^^.....^^..#","#^...E......#","#...o....N...","#..o...E....#","#^.......o..#","#^^^.....^^^#","#############"],
+    exits:{ e:{to:'town'} }, enter:'g1', npcs:['stonecut'], enemies:['goblin','rat'],
+    inspect:'Heat shimmers from a cave mouth to the north — the Ember Grotto.' },
+  lake: { name:'Mirrorwater Shore', theme:'lake', out:1,
+    map:["~~~~~~~~~~~~~","~~~~~#O#~~~~~","~~~~~~,~~~~~~","~~~~~~,~~~~~~","......,..E..~","..N.......E.~","...f........~","..........~~~","~~~~~~~~~~~~~"],
+    exits:{ w:{to:'town'} }, enter:'s1', npcs:['fisher'], enemies:['slime','jelly'],
+    inspect:'A plank bridge runs out to a tower on the water — the Mere Spire.' },
+  barrier: { name:'Keep Approach', theme:'barrier', out:1,
+    map:["####..O..####","####.....####","###QQQQQQQ###","#...........#","#..R.....R..#","#...........#","#....N.S....#","#..E.....E..#","####.....####"],
+    exits:{ s:{to:'town'} }, enter:'k1', npcs:['guard'], enemies:['skel','goblin'],
+    signs:['AZURE KEEP<br>Sealed by the Hollow King. Only the three Prism Shards together can break the barrier.'] },
+
+  /* ---- Hollow Barrow ---- */
+  b1: { name:'Barrow Entrance', theme:'barrow', dg:'barrow', pos:[1,2], f:0, entry:1,
+    map:["....#...#....",".R.........R.",".............","...R.....R...",".............","...R.....R...",".............",".R.........R.","......,......"],
+    exits:{ s:{to:'wood', at:[6,8]}, w:{to:'b2'}, e:{to:'b3'}, n:{to:'b4', lock:'key'} },
+    inspect:'Eight knight statues stand at attention. The mossy door to the north is locked. Somewhere in here there must be a key.' },
+  b2: { name:'Pillar Hall', theme:'barrow', dg:'barrow', pos:[0,2], f:0, ambush:1,
+    map:[".............",".E.#.....#.E.","...#.....#...",".............",".......E.....",".............","...#.....#...","...#.....#...",".P.........P."],
+    exits:{ e:{to:'b1'}, n:{to:'b5'} }, enemies:['skel','skel','skel'],
+    solve:{ type:'clear', spawn:[7,5,'K'], msg:'The last skeleton crumbles — and a key clatters to the floor!' },
+    inspect:'Scratches behind the pillars… something was hiding here.' },
+  b5: { name:'Statue Court', theme:'barrow', dg:'barrow', pos:[0,1], f:0,
+    map:[".............",".T.........T.",".............","...k...p.....",".............","...R.....R...",".............",".T.........T.","............."],
+    exits:{ s:{to:'b2'}, n:{to:'b6'}, e:{to:'b4', lock:'vine'} },
+    solve:{ type:'plates', spawn:[7,7,'C'], chest:{ key:1 }, msg:'Click! The stone sinks into the floor plate and a chest rises from the ground.' },
+    inspect:'One stone block has scrape marks leading toward a plate in the floor. The east wall is thick with vines… there’s a draught coming through them.' },
+  b6: { name:'Mossy Glade', theme:'glade', dg:'barrow', pos:[0,0], f:0, out:1,
+    map:["#############","##..#...#..##","#...........#","#..f..N..f..#","#.....,.....#","#..C.....P..#","#...........#","##.f.....f.##","#####...#####"],
+    exits:{ s:{to:'b5'} }, npcs:['owl'], chests:[{ pouch:1 }],
+    inspect:'Sunlight through the canopy. Somebody is snoring.' },
+  b3: { name:'Trap Corridor', theme:'barrow', dg:'barrow', pos:[2,2], f:0,
+    map:["#####...#####","#####...#####","#####.v.#####","##.....E.####","...v.....v###","##..E....####","#############","#############","#############"],
+    exits:{ w:{to:'b1'}, n:{to:'b7'} }, enemies:['skel','bat'],
+    inspect:'Some flagstones are just a little too clean. Pit traps!' },
+  b7: { name:'Relic Chamber', theme:'barrow', dg:'barrow', pos:[2,1], f:0, dormant:1,
+    map:["#############","#...........#","#..E..C..E..#","#...........#","#.P.......P.#","#...........#","#...........#","#...........#","######.######"],
+    exits:{ s:{to:'b3'} }, enemies:['sentinel','sentinel'], chests:[{ item:'hook' }],
+    inspect:'A chest on a dais, flanked by two armoured statues. Their eyes seem to follow you…' },
+  b4: { name:'Chasm Hall', theme:'barrow', dg:'barrow', pos:[1,1], f:0,
+    map:["......,......","_____________","_____________","...T.....T...",".............",".P.........P.",".............","...T.....T...","............."],
+    exits:{ s:{to:'b1', lock:'key'}, w:{to:'b5', lock:'vine'}, n:{to:'b8'} },
+    inspect:'A chasm splits the hall. Something on the far side looks like a good anchor for a hook.' },
+  b8: { name:'Bone Antechamber', theme:'barrow', dg:'barrow', pos:[1,0], f:0, ambush:1,
+    map:[".............",".E.........E.","...._____....","...._.C._....","...._____....",".............",".............",".P.........P.","............."],
+    exits:{ s:{to:'b4'}, e:{to:'b9', lock:'boss'} }, enemies:['bat','bat'], chests:[{ bigkey:'barrow' }],
+    inspect:'A chest sits on an island ringed by a pit. To the east, a great door with a skull-shaped lock.' },
+  b9: { name:'Warden’s Crypt', theme:'barrow', dg:'barrow', pos:[2,0], f:0, boss:1,
+    map:["_____________","_..........._","_..R.....R.._","_..........._","......B....._","_..........._","_..R.....R.._","_..........._","_____________"],
+    exits:{ w:{to:'b8'} }, enemies:['warden'], shardAt:[7,5], warpAt:[7,7], warp:{ to:'wood', at:[6,8] } },
+
+  /* ---- Mere Spire ---- */
+  s1: { name:'Flooded Entry', theme:'spire', dg:'spire', pos:[1,1], f:0, entry:1,
+    map:["~~~~~...~~~~~","~...........~","~.E.~~~~~.E.~","~...~~~~~...~",".............","~...~~~~~...~","~...~~~~~...~","~...........~","~~~~~...~~~~~"],
+    exits:{ s:{to:'lake', at:[7,3]}, w:{to:'s2'}, e:{to:'s3'}, n:{to:'s5', lock:'key'} }, enemies:['jelly','jelly'],
+    inspect:'Water drips everywhere. The north door is locked.' },
+  s2: { name:'West Cistern', theme:'spire', dg:'spire', pos:[0,1], f:0,
+    map:["~~~~~~~~~~~~~","~...........~","~.C.......E.~","~...~~~~~...~","~...~~~~~....","~...~~~~~...~","~.E.........~","~.....P.....~","~~~~~~~~~~~~~"],
+    exits:{ e:{to:'s1'} }, enemies:['squid','squid'], chests:[{ key:1 }] },
+  s3: { name:'East Cistern', theme:'spire', dg:'spire', pos:[2,1], f:0,
+    map:["~~~~~~~~~~~~~","~.i.......i.~","~...........~","~...........~",".....C......~","~...........~","~.....E.....~","~.i.......i.~","~~~~~~~~~~~~~"],
+    exits:{ w:{to:'s1'} }, enemies:['skel'], chests:[{ pouch:1 }],
+    solve:{ type:'braziers', spawn:[7,3,'C'], chest:{ heartc:1 }, msg:'All four braziers roar to life. A chest shimmers into being!' },
+    inspect:'Four cold braziers stand in the corners, waiting for a flame.' },
+  s5: { name:'Stair Landing', theme:'spire', dg:'spire', pos:[1,0], f:0,
+    map:["~~~~~~~~~~~~~","~...........~","~..P.....P..~","~...........~","~.....U.....~","~...........~","~..E.....E..~","~...........~","~~~~~...~~~~~"],
+    exits:{ s:{to:'s1', lock:'key'} }, up:'s6', enemies:['bat','bat'] },
+  s6: { name:'Tide Hall', theme:'spire', dg:'spire', pos:[1,0], f:1,
+    map:["~~~~~~~~~~~~~","~...........~","~.....D.....~","~...........~",".............","~..~~...~~..~","~..~~.E.~~..~","~...........~","~~~~~~~~~~~~~"],
+    exits:{ e:{to:'s7'}, w:{to:'s8'} }, down:'s5', enemies:['ghost'] },
+  s7: { name:'Block Gallery', theme:'spire', dg:'spire', pos:[2,0], f:1,
+    map:["~~~~~~~~~~~~~","~...........~","~..p.....p..~","~...........~","...k.....k..~","~...........~","~...........~","~.....E.....~","~~~~~~~~~~~~~"],
+    exits:{ w:{to:'s6'} }, enemies:['squid'],
+    solve:{ type:'plates', spawn:[7,7,'C'], chest:{ item:'wand' }, msg:'Both plates click down. A chest rises from the floor!' },
+    inspect:'Two floor plates, two heavy blocks. Push from behind.' },
+  s8: { name:'Frozen Reach', theme:'spire', dg:'spire', pos:[0,0], f:1,
+    map:["~~~~~~~~~~~~~","~...~~~.....~","~.C.~~~.....~","~...~~~..E..~","~.U.~~~......","~...~~~.....~","~...~~~..P..~","~...~~~.....~","~~~~~~~~~~~~~"],
+    exits:{ e:{to:'s6'} }, up:'s9', enemies:['skel'], chests:[{ bigkey:'spire' }],
+    inspect:'A channel of deep water cuts the room in two. Across it: a chest and a stair.' },
+  s9: { name:'Crown Deck', theme:'spire', dg:'spire', pos:[0,0], f:2,
+    map:["~~~~~~~~~~~~~","~...........~","~.D.....E...~","~...........~","~..........M.","~...........~","~...E.......~","~...........~","~~~~~~~~~~~~~"],
+    exits:{ e:{to:'s10', lock:'boss'} }, down:'s8', enemies:['ghost','ghost'] },
+  s10: { name:'Wyrm Pool', theme:'spire', dg:'spire', pos:[1,0], f:2, boss:1,
+    map:["~~~~~~~~~~~~~","~...........~","~..~~~~~~~..~","~..~~~~~~~..~","...~~~B~~~..~","~..~~~~~~~..~","~..~~~~~~~..~","~...........~","~~~~~~~~~~~~~"],
+    exits:{ w:{to:'s9'} }, enemies:['wyrm'], shardAt:[7,8], warpAt:[11,8], warp:{ to:'lake', at:[7,3] } },
+
+  /* ---- Ember Grotto ---- */
+  g1: { name:'Molten Gate', theme:'grotto', dg:'grotto', pos:[1,1], f:0, entry:1,
+    map:["^^^^^...^^^^^","^...........^","^.T.^^^^^.T.^","^...^^^^^...^","......E......","^...^^^^^...^","^.E.^^^^^...^","^...........^","^^^^^...^^^^^"],
+    exits:{ s:{to:'mount', at:[6,3]}, w:{to:'g2'}, e:{to:'g3'}, n:{to:'g4', lock:'key'} }, enemies:['fslime','fslime'],
+    inspect:'Rivers of lava. The north door is locked tight.' },
+  g2: { name:'Smoke Vault', theme:'grotto', dg:'grotto', pos:[0,1], f:0, dark:1,
+    map:["#############","#i.........i#","#...........#","#...E...E...#","#.....C......","#...........#","#...........#","#i...P.....i#","#############"],
+    exits:{ e:{to:'g1'} }, enemies:['bat','fslime'], chests:[{ key:1 }],
+    solve:{ type:'braziers', spawn:[7,7,'C'], chest:{ heartc:1 }, msg:'The four braziers blaze and a chest appears in the light!' },
+    inspect:'Pitch dark and smoky. Your hand brushes a cold brazier.' },
+  g3: { name:'Goblin Den', theme:'grotto', dg:'grotto', pos:[2,1], f:0,
+    map:["^^^^^^^^^^^^^","^...........^","^.E.....C...^","^...........^","......^^....^","^.....^^.D..^","^...E.......^","^.P.......P.^","^^^^^^^^^^^^^"],
+    exits:{ w:{to:'g1'} }, down:'g5', enemies:['goblin','goblin'], chests:[{ bombs:3 }] },
+  g5: { name:'Lower Vein', theme:'grotto', dg:'grotto', pos:[2,1], f:-1,
+    map:["#############","#...........#","#.U.........#","#.....^^^...#","......^^^...#","#.....^^^.E.#","#...........#","#..E.....P..#","#############"],
+    exits:{ w:{to:'g6'} }, up:'g3', enemies:['lizard','goblin'] },
+  g6: { name:'Forge Hollow', theme:'grotto', dg:'grotto', pos:[1,1], f:-1,
+    map:["#############","#.....C.....#","#.E.........#","#..ooooooo..#","#..o.....o...","#..o..C..o..#","#..o.....o..#","#..ooooooo..#","#############"],
+    exits:{ e:{to:'g5'} }, enemies:['spider'], chests:[{ item:'hammer' }, { pouch:1 }],
+    inspect:'An old dwarven forge. A ring of boulders guards something in the middle.' },
+  g4: { name:'Rubble Hall', theme:'grotto', dg:'grotto', pos:[1,0], f:0,
+    map:["^^^^^^^^^^^^^","^.o.......o.^","^.o.......o.^","^.o.......o.^","..o...E...o..","^.o.......o.^","^.o.......o.^","^.o.......o.^","^^^^^...^^^^^"],
+    exits:{ s:{to:'g1', lock:'key'}, e:{to:'g8', lock:'boss'}, w:{to:'g7', lock:'crack'} }, enemies:['lizard'],
+    inspect:'Boulders wall off both sides. Behind the western rocks the wall has a hairline crack…' },
+  g7: { name:'Ash Cache', theme:'grotto', dg:'grotto', pos:[0,0], f:0,
+    map:["#############","#...........#","#..^^^^^^^..#","#..^.....^..#","#..^..C......","#..^.....^..#","#..^^^^^^^..#","#.....E.....#","#############"],
+    exits:{ e:{to:'g4', lock:'crack'} }, enemies:['spider'], chests:[{ bigkey:'grotto' }] },
+  g8: { name:'Golem Forge', theme:'grotto', dg:'grotto', pos:[2,0], f:0, boss:1,
+    map:["^^^^^^^^^^^^^","^...........^","^..^.....^..^","^...........^","......B.....^","^...........^","^..^.....^..^","^...........^","^^^^^^^^^^^^^"],
+    exits:{ w:{to:'g4'} }, enemies:['golem'], shardAt:[7,5], warpAt:[7,7], warp:{ to:'mount', at:[6,3] } },
+
+  /* ---- Azure Keep ---- */
+  k1: { name:'Great Hall', theme:'keep', dg:'keep', pos:[1,2], f:0, entry:1,
+    map:[".....T.T.....",".............","..R.......R..",".............","......E......",".............","..R.......R..","...E.....E...","............."],
+    exits:{ s:{to:'barrier', at:[7,2]}, w:{to:'k2'}, e:{to:'k3'}, n:{to:'k4', lock:'key'} }, enemies:['knight','skel','skel'],
+    inspect:'Banners of the old royal house hang in tatters. The north door is locked.' },
+  k2: { name:'Barracks', theme:'keep', dg:'keep', pos:[0,2], f:0,
+    map:["#############","#.#.#.#.#.#.#","#...........#","#..E.....E..#","#............","#.....E.....#","#...........#","#.#.#.#.#.#.#","#############"],
+    exits:{ e:{to:'k1'} }, enemies:['lizard','lizard','skel'],
+    solve:{ type:'clear', spawn:[7,5,'K'], msg:'The barracks fall silent. A key drops from a fallen guard’s belt!' } },
+  k3: { name:'Dark Armory', theme:'keep', dg:'keep', pos:[2,2], f:0, dark:1, dormant:1,
+    map:["#############","#.E.......E.#","#...........#","#...C...C...#","............#","#...........#","#..P.....P..#","#...........#","#############"],
+    exits:{ w:{to:'k1'} }, enemies:['sentinel','sentinel'], chests:[{ item:'shield' }, { key:1 }],
+    inspect:'Racks of rusted weapons. Two suits of armour stand in the corners — empty, surely.' },
+  k4: { name:'Trap Hall', theme:'keep', dg:'keep', pos:[1,1], f:0,
+    map:["#############","#...........#","#.....U.....#","#..v.....v..#","#....v.v....#","#..v..v..v..#","#....v.v....#","#..E.....E..#","######.######"],
+    exits:{ s:{to:'k1', lock:'key'} }, up:'k5', enemies:['bat','bat'],
+    inspect:'The floor tiles form a suspicious pattern. Stick to the walls!' },
+  k5: { name:'Gallery', theme:'keep', dg:'keep', pos:[1,1], f:1,
+    map:["#############","#...........#","#..R..D..R..#","#...........#",".............","#...........#","#..R.....R..#","#.....E.....#","#############"],
+    exits:{ e:{to:'k6', lock:'key'}, w:{to:'k7'} }, down:'k4', enemies:['knight'] },
+  k7: { name:'Throne Vault', theme:'keep', dg:'keep', pos:[0,1], f:1,
+    map:["#############","#i....C....i#","#...........#","#..E.....E..#","#............","#...........#","#...........#","#i....P....i#","#############"],
+    exits:{ e:{to:'k5'} }, enemies:['ghost','ghost'], chests:[{ bigkey:'keep' }],
+    solve:{ type:'braziers', spawn:[7,7,'C'], chest:{ econt:1 }, msg:'The vault blazes with light. A chest appears!' } },
+  k6: { name:'Spiral Stair', theme:'keep', dg:'keep', pos:[2,1], f:1,
+    map:["#############","#...........#","#.T...U...T.#","#...........#","............#","#..E.....E..#","#...........#","#..H.....Z..#","#############"],
+    exits:{ w:{to:'k5', lock:'key'} }, up:'k8', enemies:['skel','lizard'] },
+  k8: { name:'Last Landing', theme:'keep', dg:'keep', pos:[2,1], f:2,
+    map:[".....T.T.....",".............","..R.......R..","......F......",".............","..R...S...R..",".............","......D......","............."],
+    exits:{ n:{to:'k9', lock:'boss'} }, down:'k6',
+    signs:['Beyond lies the Hollow King.<br>Only a mirror turns his darkness back upon him.'] },
+  k9: { name:'Hollow Throne', theme:'keep', dg:'keep', pos:[2,0], f:2, boss:1,
+    map:["#############","#.T.......T.#","#.....B.....#","#...........#","#..R.....R..#","#...........#","#...........#","#.T.......T.#","######.######"],
+    exits:{ s:{to:'k8'} }, enemies:['king'], shardAt:[7,3] }
+};
+for (const id in ROOMS) ROOMS[id].id = id;
+
+/* ---------- inhabitants: each only wants to talk about one thing ---------- */
+const NPCS = {
+  elder: { name:'Elder Maple', look:{ H:'#e8e8e8', C:'#6a4ab8' }, talk: () => {
+    const n = S.shards;
+    if (n === 0) return `The <b>Azure Prism</b> kept our land bright — until the <b>Hollow King</b> broke it and sealed himself in the Azure Keep behind a barrier. He hid the three <b>Prism Shards</b> in three lairs: the <em>Hollow Barrow</em> to the south, the <em>Mere Spire</em> to the east and the <em>Ember Grotto</em> to the west. Bring me all three and the barrier will fall. Start in the woods — the Barrow is the gentlest of the three.`;
+    if (n < 3) return `${n} shard${n > 1 ? 's' : ''}! I can feel the Prism humming. Each shard also lets you <b>reroll</b> a bad roll once — rest here in the village and they recharge. ${3 - n} more to go.`;
+    return `All three shards! Go north, hero. The barrier will not hold against them now.`; } },
+  shop: { name:'Brindle the Merchant', look:{ H:'#8a5a2b', C:'#3aa04a' }, talk: () => openShop() },
+  gambler: { name:'Lucky Fen', look:{ H:'#f2d03a', C:'#d83ab0' }, talk: () => openGamble() },
+  kid: { name:'Pip', look:{ H:'#d83a3a', C:'#f08a2a' }, talk: () => pick([
+    'The ducks here are the best ducks. That one is called Sir Quackington. He is very brave.',
+    'Did you know ducks can sleep with one eye open? I tried it. I fell over.',
+    'I want to be a duck when I grow up. Or a hero. A duck hero!']) },
+  duck: { name:'Sir Quackington', duck:1, talk: () => pick(['Quack.','Quack quack!','…quack?','QUACK.']) },
+  moss: { name:'Mossbeard', look:{ H:'#5a7a3a', C:'#7a4a1a' }, talk: () => 'Mushrooms, friend! The best ones grow on the Barrow’s doorstep. Though I’d not pick anything off that dais inside… the statues in there get <b>very</b> touchy about their treasure. And that fountain? Pixies live in it. A dip heals you right up.' },
+  stonecut: { name:'Old Grit', look:{ H:'#6a6a6a', C:'#8a5a2b' }, talk: () => 'Rocks. Lovely rocks. Not all rocks are the same, see. A <b>boulder</b> wants a big hammer. A <b>cracked wall</b> wants a bomb — but you’ll only spot the crack if you <b>Inspect</b> the room. Rocks!' },
+  fisher: { name:'Old Nell', look:{ H:'#f4f4f4', C:'#3a6ad8' }, talk: () => 'Fish don’t bite since that Spire filled with monsters. There’s a wyrm in the top pool, they say — slippery thing, ducks under whenever you swing. If only you could <b>freeze</b> the water around it…' },
+  guard: { name:'Sir Rook', look:{ H:'#8a8a8a', C:'#8a96b0' }, talk: () => S.shards >= 3 ? 'The barrier… it’s gone! Go, hero. End this.' : `The barrier. I watch the barrier. Nothing passes the barrier — not without all three Prism Shards. You have ${S.shards}.` },
+  owl: { name:'Hoot the Napper', look:{ H:'#8a5a2b', C:'#c8a060' }, talk: () => { S.flags.owl = 1; return 'Zzz… wha? Oh! I’ve been asleep for ages. There’s a chest over there I’ve been meaning to open — take it, it’s yours. Watch out for the pit traps in the eastern corridor. They don’t look like much.'; } }
+};
+
+/* ---------- state ---------- */
+let S = null;          // saved state
+const G = { mode:'title', busy:false, room:null, grid:null, base:null, ents:[], chestAt:{}, npcAt:{}, signAt:{}, t:0, frame:0, cb:null, swim:null, dlg:0 };
+const SAVE_KEY = 'azurmere-save-v1';
+
+function newState(hero) {
+  const mh = 3;
+  return {
+    v:1, hero, hearts:mh, maxH:mh, energy:3, maxE:3, gems:15, keys:0, bombs:0, snacks:0, meals:0, shards:0, rerolls:0,
+    pouch:4, inv:[hero.item], bigkeys:{}, room:'town', x:7, y:6, face:'s', check:{ room:'town', x:7, y:6 },
+    mods:{}, dead:{}, opened:{}, found:{}, solved:{}, visited:{}, bosses:{}, flags:{}, fae:0, stone:0, glitch:0
+  };
+}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function loadSave() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+const has = id => S.inv.includes(id);
+const attr = a => S.hero[a];
+const doorId = (a, b) => [a, b].sort().join('|');
+
+/* ---------- audio: tiny square-wave chirps ---------- */
+let AC = null, soundOn = true;
+function tone(f, d = .08, type = 'square', vol = .045, slide = 0, delay = 0) {
+  if (!soundOn) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t0);
+    if (slide) o.frequency.linearRampToValueAtTime(Math.max(40, f + slide), t0 + d);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+    o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + .02);
+  } catch (e) {}
+}
+const SFX = {
+  step: () => tone(120, .03, 'triangle', .02),
+  bump: () => tone(90, .06, 'square', .03),
+  hit: () => { tone(220, .07, 'square', .05, -120); },
+  hurt: () => { tone(160, .14, 'sawtooth', .05, -100); },
+  coin: () => { tone(988, .06); tone(1318, .12, 'square', .045, 0, .06); },
+  chest: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, .1, 'square', .04, 0, i * .08)),
+  door: () => { tone(200, .08, 'square', .04, 80); tone(300, .1, 'square', .04, 0, .08); },
+  roll: () => tone(600 + rnd(400), .025, 'square', .025),
+  win: () => [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, .14, 'square', .045, 0, i * .1)),
+  lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, .2, 'triangle', .05, 0, i * .16)),
+  magic: () => [880, 1175, 1568].forEach((f, i) => tone(f, .1, 'triangle', .04, 0, i * .05)),
+  boom: () => { tone(80, .3, 'sawtooth', .07, -50); },
+  stairs: () => [300, 400, 500].forEach((f, i) => tone(f, .06, 'triangle', .04, 0, i * .05))
+};
+
+/* ============================================================
+   ROOM BUILDING
+   ============================================================ */
+function baseGrid(R) {
+  const g = [];
+  for (let y = 0; y < GH; y++) {
+    const row = [];
+    for (let x = 0; x < GW; x++) row.push(x === 0 || y === 0 || x === GW - 1 || y === GH - 1 ? '#' : R.map[y - 1][x - 1]);
+    g.push(row);
+  }
+  for (const d in R.exits) { const [x, y] = DOORPOS[d]; g[y][x] = 'd'; }
+  return g;
+}
+function setMod(x, y, ch, rid = G.room.id) {
+  (S.mods[rid] = S.mods[rid] || {})[x + ',' + y] = ch;
+  if (rid === G.room.id) G.grid[y][x] = ch;
+}
+function loadRoom(id, ax, ay) {
+  const R = ROOMS[id];
+  G.room = R; S.room = id; S.visited[id] = 1; G.swim = null;
+  const b = baseGrid(R);
+  G.base = b;
+  G.grid = b.map(r => r.slice());
+  G.ents = []; G.chestAt = {}; G.npcAt = {}; G.signAt = {};
+  let ei = 0, ci = 0, ni = 0, si = 0;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const ch = b[y][x], k = x + ',' + y;
+    if (ch === 'E' || ch === 'B') {
+      const idx = ei++, eid = id + ':' + idx;
+      G.grid[y][x] = '.';
+      if (!S.dead[eid]) G.ents.push({ id:eid, kind:R.enemies[idx], x, y, boss:ch === 'B', hidden:!!R.ambush, dormant:!!R.dormant, calm:0 });
+    } else if (ch === 'C') G.chestAt[k] = (R.chests || [])[ci++];
+    else if (ch === 'N') G.npcAt[k] = R.npcs[ni++];
+    else if (ch === 'S') G.signAt[k] = R.signs[si++];
+  }
+  if (R.solve && R.solve.chest) { const [sx, sy] = R.solve.spawn; G.chestAt[sx + ',' + sy] = R.solve.chest; }
+  const m = S.mods[id]; if (m) for (const k in m) { const [x, y] = k.split(',').map(Number); G.grid[y][x] = m[k]; }
+  // the barrier falls once all three shards are carried
+  if (id === 'barrier' && S.shards >= 3) for (let x = 0; x < GW; x++) if (G.grid[3][x] === 'Q') setMod(x, 3, '.');
+  S.x = ax; S.y = ay; G.entry = { x:ax, y:ay };
+  if (R.entry || R.safe) S.check = { room:id, x:ax, y:ay };
+  if (R.safe) { S.rerolls = S.shards; }
+  updateSheet(); drawMini(); updateLoc(); save();
+  const boss = G.ents.find(e => e.boss);
+  if (boss) { G.busy = true; setTimeout(() => { G.busy = false; startCombat(boss, false); }, 650); }
+}
+function go(id, ax, ay) {
+  SFX.door();
+  loadRoom(id, ax, ay);
+  const R = ROOMS[id];
+  if (!S.flags['seen_' + id]) {
+    S.flags['seen_' + id] = 1;
+    if (R.entry) say(`You enter the ${DG[R.dg].name}.`, 'gold');
+    else say(R.name + '.', 'az');
+  } else say(R.name + '.');
+}
+function findTile(R, ch) {
+  for (let y = 1; y < GH - 1; y++) { const x = R.map[y - 1].indexOf(ch); if (x >= 0) return [x + 1, y]; }
+  return [7, 5];
+}
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'); dark.width = cv.width; dark.height = cv.height;
+const dctx = dark.getContext('2d');
+
+function th() { return THEMES[G.room.theme]; }
+function floor(x, y, T) {
+  ctx.fillStyle = T.floor; ctx.fillRect(x * TS, y * TS, TS, TS);
+  ctx.fillStyle = T.dot;
+  if ((x * 7 + y * 13) % 5 === 0) ctx.fillRect(x * TS + 4, y * TS + 6, 2, 2);
+  if ((x * 11 + y * 3) % 7 === 0) ctx.fillRect(x * TS + 11, y * TS + 11, 2, 2);
+  if (T.out && (x * 5 + y * 9) % 4 === 0) { ctx.fillRect(x * TS + 9, y * TS + 3, 1, 3); ctx.fillRect(x * TS + 8, y * TS + 4, 3, 1); }
+}
+function wall(x, y, T) {
+  const px = x * TS, py = y * TS;
+  ctx.fillStyle = T.wall2; ctx.fillRect(px, py, TS, TS);
+  ctx.fillStyle = T.wall; ctx.fillRect(px + 1, py + 1, TS - 2, TS - 3);
+  ctx.fillStyle = T.top; ctx.fillRect(px + 1, py + 1, TS - 2, 2);
+  ctx.fillStyle = T.wall2;
+  ctx.fillRect(px, py + 8, TS, 1);
+  ctx.fillRect(px + ((y % 2) ? 4 : 11), py + 1, 1, 7);
+  ctx.fillRect(px + ((y % 2) ? 11 : 4), py + 9, 1, 6);
+}
+function isWallish(ch) { return ch === '#' || ch === '?'; }
+function drawTile(ch, x, y) {
+  const T = th(), px = x * TS, py = y * TS, t = G.t;
+  switch (ch) {
+    case '#':
+      if (T.out) { floor(x, y, T); drawSprite(ctx, T.tree, SPAL[T.tree], px, py); }
+      else wall(x, y, T);
+      return;
+    case ',':
+      ctx.fillStyle = T.path; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = shade(T.path, .85);
+      if (G.room.theme === 'lake') { ctx.fillRect(px, py + 5, TS, 1); ctx.fillRect(px, py + 11, TS, 1); }
+      else ctx.fillRect(px + 3 + (x * 3 + y) % 8, py + 4 + (y * 5) % 8, 2, 2);
+      return;
+    case '~': case '*': {
+      if (ch === '*') {
+        ctx.fillStyle = '#cdeffc'; ctx.fillRect(px, py, TS, TS);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 3, py + 3, 4, 1); ctx.fillRect(px + 9, py + 10, 3, 1);
+        ctx.fillStyle = '#9ad4ec'; ctx.fillRect(px, py + 15, TS, 1);
+        return;
+      }
+      ctx.fillStyle = '#2a7ad0'; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = '#4aa8e8';
+      const o = Math.floor(t / 10 + x * 2 + y) % 8;
+      ctx.fillRect(px + o, py + 4, 4, 1); ctx.fillRect(px + ((o + 6) % 12), py + 11, 4, 1);
+      return;
+    }
+    case '^': {
+      ctx.fillStyle = '#c42a1a'; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = '#f68a2a';
+      const o = Math.floor(t / 14 + x + y * 2) % 6;
+      ctx.fillRect(px + 2 + o, py + 3, 3, 2); ctx.fillRect(px + 10 - o, py + 10, 3, 2);
+      ctx.fillStyle = '#ffd23a'; if ((Math.floor(t / 20) + x + y) % 5 === 0) ctx.fillRect(px + 7, py + 7, 2, 2);
+      return;
+    }
+    case '_':
+      ctx.fillStyle = '#05040a'; ctx.fillRect(px, py, TS, TS);
+      if (y > 0 && G.grid[y - 1][x] !== '_') { ctx.fillStyle = shade(T.floor || '#888', .55); ctx.fillRect(px, py, TS, 3); }
+      return;
+    case 'd': drawDoor(x, y); return;
+    case 'h': {
+      floor(x, y, T);
+      const top = y > 0 && G.grid[y - 1][x] !== 'h';
+      if (top) {
+        ctx.fillStyle = '#b8402a'; ctx.fillRect(px, py + 2, TS, 14);
+        ctx.fillStyle = '#8a2a1a'; for (let i = 0; i < 4; i++) ctx.fillRect(px, py + 4 + i * 4, TS, 1);
+        ctx.fillStyle = '#e0604a'; ctx.fillRect(px, py + 2, TS, 2);
+      } else {
+        ctx.fillStyle = '#e8d8b0'; ctx.fillRect(px, py, TS, TS - 1);
+        ctx.fillStyle = '#a8946a'; ctx.fillRect(px, py + 15, TS, 1);
+        const left = G.grid[y][x - 1] === 'h';
+        if (left) { ctx.fillStyle = '#6a3e1a'; ctx.fillRect(px + 2, py + 5, 7, 10); ctx.fillStyle = '#f2c14e'; ctx.fillRect(px + 7, py + 10, 1, 1); }
+        else { ctx.fillStyle = '#4a8ad8'; ctx.fillRect(px + 5, py + 4, 6, 5); ctx.fillStyle = '#6a3e1a'; ctx.fillRect(px + 7, py + 4, 1, 5); ctx.fillRect(px + 5, py + 6, 6, 1); }
+      }
+      return;
+    }
+    case 'Q': {
+      floor(x, y, T);
+      const a = .55 + .25 * Math.sin(t / 12 + x);
+      ctx.fillStyle = `rgba(120,80,255,${a})`; ctx.fillRect(px, py, TS, TS);
+      ctx.fillStyle = 'rgba(220,200,255,.8)'; ctx.fillRect(px + ((Math.floor(t / 6) + x * 5) % 14), py + 2, 2, 12);
+      return;
+    }
+    case 'O':
+      floor(x, y, T);
+      ctx.fillStyle = '#3a3040'; ctx.fillRect(px + 1, py + 1, 14, 15);
+      ctx.fillStyle = '#05040a'; ctx.fillRect(px + 4, py + 4, 8, 12); ctx.fillRect(px + 5, py + 3, 6, 1);
+      return;
+  }
+  // everything else stands on a floor
+  if (ch === 'f') {
+    floor(x, y, T);
+    ctx.fillStyle = '#f29ac0'; ctx.fillRect(px + 3, py + 4, 2, 2); ctx.fillRect(px + 10, py + 9, 2, 2);
+    ctx.fillStyle = '#f2d03a'; ctx.fillRect(px + 8, py + 3, 2, 2); ctx.fillRect(px + 4, py + 11, 2, 2);
+    return;
+  }
+  floor(x, y, T);
+  const sp = (n, p) => drawSprite(ctx, n, SPAL[p || n], px, py);
+  switch (ch) {
+    case 'C': sp('chest'); break;
+    case 'c': sp('chesto', 'chest'); break;
+    case 'P': sp('pot'); break;
+    case 'H': if ((t >> 4) % 2) sp('heart'); else drawSprite(ctx, 'heart', SPAL.heart, px, py + 1); break;
+    case 'Z': sp('bolt'); break;
+    case 'M': sp('meal'); break;
+    case 'K': sp('key'); break;
+    case 'G': sp('gem'); break;
+    case 'T': sp('torch'); if ((t >> 3) % 2) { ctx.fillStyle = '#fff6b0'; ctx.fillRect(px + 7, py, 2, 2); } break;
+    case 'R': sp('statue'); break;
+    case 'S': sp('sign'); break;
+    case 'F': sp('fount'); if ((t >> 3) % 3 === 0) { ctx.fillStyle = '#fff'; ctx.fillRect(px + 4 + rnd(8), py + rnd(4), 1, 1); } break;
+    case 'o': sp('boulder'); break;
+    case 'i': drawSprite(ctx, 'brz', SPAL.brzOff, px, py); break;
+    case 'I':
+      drawSprite(ctx, 'brz', SPAL.brzOff, px, py);
+      ctx.fillStyle = '#ff6a1a'; ctx.fillRect(px + 4, py + 2 + ((t >> 3) % 2), 8, 6);
+      ctx.fillStyle = '#ffe07a'; ctx.fillRect(px + 6, py + 4, 4, 4);
+      break;
+    case '%':
+      ctx.fillStyle = '#2f7a34';
+      for (let i = 0; i < 6; i++) ctx.fillRect(px + (i * 5) % 14, py + (i * 7) % 14, 3, 3);
+      ctx.fillStyle = '#1f5a26'; ctx.fillRect(px + 2, py + 2, 1, 12); ctx.fillRect(px + 8, py + 1, 1, 13); ctx.fillRect(px + 13, py + 3, 1, 11);
+      break;
+    case 'p':
+      ctx.fillStyle = shade(T.floor, .7); ctx.fillRect(px + 2, py + 2, 12, 12);
+      ctx.fillStyle = shade(T.floor, 1.12); ctx.fillRect(px + 3, py + 3, 10, 10);
+      break;
+    case 'k': case 'j':
+      if (ch === 'j') { ctx.fillStyle = shade(T.floor, .7); ctx.fillRect(px + 2, py + 2, 12, 12); }
+      ctx.fillStyle = '#5a5a66'; ctx.fillRect(px + 1, py + 1, 14, 14);
+      ctx.fillStyle = '#8a8a98'; ctx.fillRect(px + 2, py + 2, 12, 10);
+      ctx.fillStyle = '#b0b0c0'; ctx.fillRect(px + 2, py + 2, 12, 2);
+      if (ch === 'j') { ctx.fillStyle = '#f2c14e'; ctx.fillRect(px + 6, py + 6, 4, 4); }
+      break;
+    case 'D': case 'U':
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#4a4458' : '#6a6478'; ctx.fillRect(px + 1, py + 1 + i * 3 + (ch === 'D' ? 0 : 1), 14 - (ch === 'D' ? i * 2 : (3 - i) * 2), 3); }
+      ctx.fillStyle = '#0c0a16'; ctx.fillRect(px + 1, py + 13, 14, 2);
+      break;
+    case 'X': drawSprite(ctx, 'shard', SPAL.shard, px, py - ((t >> 3) % 2)); break;
+    case 'W': {
+      const a = (t / 8) % 4;
+      ctx.save(); ctx.globalAlpha = .9; drawSprite(ctx, 'warp', SPAL.warp, px, py); ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.fillRect(px + 7 + Math.round(Math.cos(a) * 5), py + 7 + Math.round(Math.sin(a) * 5), 2, 2);
+      break;
+    }
+    case 'N': {
+      const npc = NPCS[G.npcAt[x + ',' + y]];
+      if (npc && npc.duck) drawSprite(ctx, 'duck', SPAL.duck, px, py + ((t >> 4) % 2), 2, (t >> 6) % 2 === 1);
+      else if (npc) drawSprite(ctx, 'hero', { H:npc.look.H, S:'#f1c9a0', K, C:npc.look.C, c:shade(npc.look.C, .7), B:'#3a2416' }, px, py + ((t >> 5) % 2));
+      break;
+    }
+  }
+}
+function lockState(d) {
+  const ex = G.room.exits[d]; if (!ex) return 'none';
+  if (!ex.lock) return 'open';
+  const id = doorId(G.room.id, ex.to);
+  if (S.opened[id]) return 'open';
+  if ((ex.lock === 'vine' || ex.lock === 'crack') && !S.found[id]) return 'hidden';
+  return ex.lock;
+}
+function dirAt(x, y) { for (const d in DOORPOS) if (DOORPOS[d][0] === x && DOORPOS[d][1] === y) return d; return null; }
+function drawDoor(x, y) {
+  const T = th(), px = x * TS, py = y * TS, d = dirAt(x, y), st = lockState(d);
+  const bossSealed = G.room.boss && G.ents.some(e => e.boss);
+  if (T.out) { ctx.fillStyle = T.path; ctx.fillRect(px, py, TS, TS); return; }
+  if (st === 'hidden') { wall(x, y, T); return; }
+  ctx.fillStyle = '#0c0a16'; ctx.fillRect(px, py, TS, TS);
+  ctx.fillStyle = T.wall2;
+  if (d === 'n' || d === 's') { ctx.fillRect(px, py, 2, TS); ctx.fillRect(px + 14, py, 2, TS); }
+  else { ctx.fillRect(px, py, TS, 2); ctx.fillRect(px, py + 14, TS, 2); }
+  if (st === 'key') {
+    ctx.fillStyle = '#7a4a1a'; ctx.fillRect(px + 2, py + 2, 12, 12);
+    ctx.fillStyle = '#a8642a'; ctx.fillRect(px + 3, py + 3, 10, 10);
+    ctx.fillStyle = '#0c0a16'; ctx.fillRect(px + 7, py + 5, 2, 3); ctx.fillRect(px + 6, py + 8, 4, 3);
+  } else if (st === 'boss' || bossSealed) {
+    ctx.fillStyle = '#4a1a2a'; ctx.fillRect(px + 2, py + 2, 12, 12);
+    ctx.fillStyle = '#8a2a3a'; ctx.fillRect(px + 3, py + 3, 10, 10);
+    ctx.fillStyle = '#f2c14e'; ctx.fillRect(px + 5, py + 5, 6, 4); ctx.fillRect(px + 6, py + 9, 4, 2);
+    ctx.fillStyle = '#0c0a16'; ctx.fillRect(px + 6, py + 6, 1, 1); ctx.fillRect(px + 9, py + 6, 1, 1);
+  } else if (st === 'vine') {
+    ctx.fillStyle = T.floor; ctx.fillRect(px + 2, py + 2, 12, 12);
+    ctx.fillStyle = '#2f7a34'; for (let i = 0; i < 6; i++) ctx.fillRect(px + 2 + (i * 5) % 11, py + 2 + (i * 7) % 11, 3, 3);
+    ctx.fillStyle = '#1f5a26'; ctx.fillRect(px + 4, py + 2, 1, 12); ctx.fillRect(px + 10, py + 2, 1, 12);
+  } else if (st === 'crack') {
+    wall(x, y, T);
+    ctx.fillStyle = '#0c0a16'; ctx.fillRect(px + 7, py + 2, 1, 4); ctx.fillRect(px + 6, py + 6, 1, 3); ctx.fillRect(px + 8, py + 8, 1, 5); ctx.fillRect(px + 9, py + 5, 2, 1);
+  } else {
+    ctx.fillStyle = T.floor; ctx.fillRect(px + 2, py + 2, 12, 12);
+    ctx.fillStyle = shade(T.floor, .75);
+    if (d === 'n') ctx.fillRect(px + 2, py, 12, 4); else if (d === 's') ctx.fillRect(px + 2, py + 12, 12, 4);
+    else if (d === 'w') ctx.fillRect(px, py + 2, 4, 12); else ctx.fillRect(px + 12, py + 2, 4, 12);
+  }
+}
+function drawEnt(e) {
+  const D = ENEMIES[e.kind], t = G.t;
+  if (e.hidden) return;
+  const px = e.x * TS, py = e.y * TS;
+  if (e.dormant) { drawSprite(ctx, 'statue', SPAL.statue, px, py); return; }
+  if (e.boss) {
+    const bob = Math.round(Math.sin(t / 10) * 2);
+    drawSprite(ctx, D.spr, SPAL[D.pal], px - 8, py - 12 + bob, 4);
+    return;
+  }
+  const bob = (t >> 4) % 2;
+  if (e.kind === 'bat') drawSprite(ctx, D.spr, SPAL[D.pal], px, py - 2 - bob * 2);
+  else drawSprite(ctx, D.spr, SPAL[D.pal], px, py + bob, 2, (t >> 6) % 2 === 1);
+}
+function render() {
+  G.t++;
+  if (!G.room) return;
+  const g = G.grid;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) drawTile(g[y][x], x, y);
+  for (const e of G.ents) drawEnt(e);
+  // hero
+  const pal = heroPal(S.hero);
+  const walk = G.frame % 2 ? 'hero2' : 'hero';
+  const px = S.x * TS, py = S.y * TS;
+  if (G.mode === 'combat' && G.hurtT > 0) { G.hurtT--; if (G.hurtT % 4 < 2) { /* blink */ } else drawSprite(ctx, walk, pal, px, py, 2, S.face === 'w'); }
+  else drawSprite(ctx, walk, pal, px, py, 2, S.face === 'w');
+  if (g[S.y][S.x] === '~') { ctx.fillStyle = 'rgba(42,122,208,.85)'; ctx.fillRect(px, py + 10, TS, 6); }
+  // darkness
+  if (G.room.dark && !has('lantern')) {
+    dctx.globalCompositeOperation = 'source-over';
+    dctx.clearRect(0, 0, dark.width, dark.height);
+    dctx.fillStyle = 'rgba(4,3,10,.94)'; dctx.fillRect(0, 0, dark.width, dark.height);
+    dctx.globalCompositeOperation = 'destination-out';
+    const hole = (cx, cy, r) => { const gr = dctx.createRadialGradient(cx, cy, 4, cx, cy, r); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); dctx.fillStyle = gr; dctx.beginPath(); dctx.arc(cx, cy, r, 0, 7); dctx.fill(); };
+    hole(px + 8, py + 8, 34);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (g[y][x] === 'I') hole(x * TS + 8, y * TS + 8, 40);
+    ctx.drawImage(dark, 0, 0);
+  }
+  // combat focus ring
+  if (G.mode === 'combat' && G.cb) {
+    const f = G.cb.foes[G.cb.t];
+    if (f && (G.t >> 3) % 2) { ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 1; ctx.strokeRect(f.e.x * TS - 1.5, f.e.y * TS - 1.5, TS + 3, TS + 3); }
+  }
+}
+function loop() { render(); requestAnimationFrame(loop); }
+
+/* ============================================================
+   UI: log, sheet, minimap, dialogs
+   ============================================================ */
+function say(html, cls) {
+  const p = document.createElement('p'); p.innerHTML = html; if (cls) p.className = cls;
+  const L = $('#log'); L.appendChild(p); while (L.children.length > 30) L.firstChild.remove(); L.scrollTop = L.scrollHeight;
+}
+function clog(html, cls) {
+  const p = document.createElement('p'); p.innerHTML = html; if (cls) p.className = cls;
+  const L = $('#clog'); L.appendChild(p); while (L.children.length > 40) L.firstChild.remove(); L.scrollTop = L.scrollHeight;
+}
+function updateLoc() {
+  const R = G.room;
+  const sub = R.dg ? `${DG[R.dg].name} · ${floorName(R.f)}` : 'Overworld';
+  $('#loc').innerHTML = `${R.name.toUpperCase()}<small>${sub}</small>`;
+}
+const floorName = f => f >= 0 ? `${f + 1}F` : `B${-f}`;
+function updateSheet() {
+  if (!S) return;
+  const h = S.hero;
+  $('#shName').textContent = h.name.toUpperCase();
+  $('#shKin').textContent = KINS[h.kin].name;
+  $('#shWeap').textContent = 'Weapon: ' + KINS[h.kin].weapon;
+  // attribute triangle
+  $('#tri').innerHTML = `
+    <polygon points="62,4 120,104 4,104" fill="#0e0b1b" stroke="#4a4374" stroke-width="4"/>
+    <line x1="62" y1="70" x2="62" y2="104" stroke="#4a4374" stroke-width="3"/>
+    <line x1="62" y1="70" x2="33" y2="54" stroke="#4a4374" stroke-width="3"/>
+    <line x1="62" y1="70" x2="91" y2="54" stroke="#4a4374" stroke-width="3"/>
+    <text x="62" y="36" fill="#a49cc4" font-family="Press Start 2P" font-size="6" text-anchor="middle">POWER</text>
+    <text x="62" y="54" fill="#f2c14e" font-family="Press Start 2P" font-size="13" text-anchor="middle">${h.power}</text>
+    <text x="34" y="78" fill="#a49cc4" font-family="Press Start 2P" font-size="6" text-anchor="middle">NERVE</text>
+    <text x="34" y="96" fill="#f2c14e" font-family="Press Start 2P" font-size="13" text-anchor="middle">${h.nerve}</text>
+    <text x="90" y="78" fill="#a49cc4" font-family="Press Start 2P" font-size="6" text-anchor="middle">WITS</text>
+    <text x="90" y="96" fill="#f2c14e" font-family="Press Start 2P" font-size="13" text-anchor="middle">${h.wits}</text>`;
+  const row = (el, n, max, full, empty, off) => {
+    let s = '';
+    for (let i = 0; i < 12; i++) s += `<img alt="" src="${i < n ? full : i < max ? empty : off}">`;
+    el.innerHTML = s;
+  };
+  row($('#shHearts'), S.hearts, S.maxH, icon('heart', 'heart'), icon('heart', 'heartE'), icon('heart', 'heartO'));
+  row($('#shEnergy'), S.energy, S.maxE, icon('bolt', 'bolt'), icon('bolt', 'boltE'), icon('bolt', 'heartO'));
+  $('#shHn').textContent = `${S.hearts}/${S.maxH}`;
+  $('#shEn').textContent = `${S.energy}/${S.maxE}`;
+  $('#shPouch').textContent = S.pouch === 8 ? 'LARGE POUCH' : 'SMALL POUCH';
+  let sl = '';
+  for (let i = 0; i < 8; i++) {
+    const id = S.inv[i];
+    if (i >= S.pouch) sl += `<div class="slot locked"></div>`;
+    else if (id) sl += `<button class="slot" data-i="${i}" title="${ITEMS[id].name}"><img alt="${ITEMS[id].name}" src="${icon(ITEMS[id].icon, ITEMS[id].pal)}"></button>`;
+    else sl += `<div class="slot"></div>`;
+  }
+  $('#shSlots').innerHTML = sl;
+  const bk = Object.keys(S.bigkeys).filter(k => S.bigkeys[k]).length;
+  $('#shCounts').innerHTML = `
+    <button class="count" id="eatSnack" title="Eat a snack (+1 heart, +1 energy)" ${S.snacks && G.mode === 'play' ? '' : 'disabled'}><img alt="" src="${icon('snack', 'snack')}">${S.snacks}</button>
+    <button class="count" id="eatMeal" title="Eat a meal (+3 hearts, +3 energy)" ${S.meals && G.mode === 'play' ? '' : 'disabled'}><img alt="" src="${icon('meal', 'meal')}">${S.meals}</button>
+    <div class="count" title="Gems"><img alt="" src="${icon('gem', 'gem')}">${S.gems}</div>
+    <div class="count" title="Keys"><img alt="" src="${icon('key', 'key')}">${S.keys}${bk ? `<img alt="" src="${icon('bigkey', 'bigkey')}">` : ''}</div>
+    <div class="count" title="Bombs"><img alt="" src="${icon('bomb', 'bomb')}">${S.bombs}</div>
+    <div class="count" title="Prism Shards (rerolls left)"><img alt="" src="${icon('shard', 'shard')}">${S.shards}/3</div>`;
+  $('#eatSnack').onclick = () => fieldEat('snack');
+  $('#eatMeal').onclick = () => fieldEat('meal');
+  document.querySelectorAll('#shSlots button.slot').forEach(b => b.onclick = () => itemInfo(+b.dataset.i));
+}
+function drawMini() {
+  const c = $('#mini'), m = c.getContext('2d'), R = G.room;
+  m.fillStyle = '#0e0b1b'; m.fillRect(0, 0, c.width, c.height);
+  if (!R.dg) {
+    // overworld cross
+    const cells = { town:[2,1], barrier:[2,0], wood:[2,2], mount:[1,1], lake:[3,1] };
+    for (const id in cells) {
+      const [x, y] = cells[id], px = 15 + x * 26, py = 8 + y * 26;
+      m.fillStyle = S.visited[id] ? (id === R.id ? '#f2c14e' : '#4a8a4a') : '#2a2440';
+      m.fillRect(px, py, 22, 22);
+    }
+    $('#shFloor').textContent = 'OVERWORLD';
+    return;
+  }
+  const rooms = Object.values(ROOMS).filter(r => r.dg === R.dg && r.f === R.f);
+  for (const r of rooms) {
+    if (!S.visited[r.id]) continue;
+    const [x, y] = r.pos, px = 30 + x * 32, py = 6 + y * 27;
+    m.fillStyle = r.id === R.id ? '#f2c14e' : r.boss ? '#8a2a3a' : '#3a6a8a';
+    m.fillRect(px, py, 28, 23);
+    if (r.up || r.down) { m.fillStyle = '#0e0b1b'; m.fillRect(px + 11, py + 8, 6, 6); }
+  }
+  $('#shFloor').textContent = `${DG[R.dg].name.toUpperCase()} ${floorName(R.f)}`;
+}
+
+let dlgResolve = null;
+function dialog(title, html, buttons = [{ label:'OK', v:true }], iconSrc) {
+  G.dlg++;
+  $('#dlgT').innerHTML = (iconSrc ? `<img alt="" src="${iconSrc}">` : '') + title;
+  $('#dlgB').innerHTML = html;
+  const R = $('#dlgR'); R.innerHTML = '';
+  return new Promise(res => {
+    dlgResolve = v => { $('#modal').hidden = true; G.dlg--; dlgResolve = null; res(v); };
+    buttons.forEach((b, i) => {
+      const el = document.createElement('button');
+      el.className = 'btn' + (i === buttons.length - 1 ? ' primary' : '');
+      el.textContent = b.label; el.disabled = !!b.disabled;
+      el.onclick = () => dlgResolve(b.v);
+      R.appendChild(el);
+    });
+    $('#modal').hidden = false;
+    const last = R.lastElementChild; if (last) last.focus();
+  });
+}
+function flash() { const f = $('#flash'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 90); }
+
+/* ============================================================
+   DICE
+   ============================================================ */
+function dieIcon(n, kept) {
+  const k = 'die' + n + (kept ? 'k' : '');
+  if (iconCache[k]) return iconCache[k];
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const x = c.getContext('2d');
+  drawSprite(x, 'die', { W: kept ? '#f2c14e' : '#e8e0d0' }, 0, 0, 4);
+  x.fillStyle = '#1a1424'; x.font = '12px "Press Start 2P", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(String(n), 16, 19);
+  return iconCache[k] = c.toDataURL();
+}
+/* Roll a pool. n ≤ 0 → roll 2 and keep the lowest. Returns {r, fours, dice}. */
+function rawRoll(n) {
+  const cnt = n <= 0 ? 2 : n;
+  const dice = Array.from({ length:cnt }, d4);
+  const r = n <= 0 ? Math.min(...dice) : Math.max(...dice);
+  const fours = n <= 0 ? (r === 4 ? 1 : 0) : dice.filter(v => v === 4).length;
+  return { r, fours, dice, low:n <= 0 };
+}
+function verdictText(r, kind) {
+  if (r >= 4) return ['g', 'SUCCESS!'];
+  if (r === 3) return ['m', kind === 'safe' ? 'SUCCESS' : 'SUCCESS — BUT IT COSTS YOU'];
+  return ['f', 'FAIL'];
+}
+async function showRoll(tray, label, n, res) {
+  tray.innerHTML = `<span class="verdict">${label} · ${n <= 0 ? '2D (LOWEST)' : n + 'D'}</span>`;
+  const imgs = res.dice.map(() => { const i = document.createElement('img'); i.className = 'die'; i.alt = ''; tray.appendChild(i); return i; });
+  for (let k = 0; k < 6; k++) { imgs.forEach(i => i.src = dieIcon(d4(), false)); SFX.roll(); await sleep(55); }
+  let keptIdx = res.dice.indexOf(res.r);
+  imgs.forEach((im, i) => { const v = res.dice[i]; const kept = i === keptIdx || (v === 4 && res.r === 4 && !res.low); im.src = dieIcon(v, kept); if (!kept) im.classList.add('dim'); im.alt = String(v); });
+}
+/* A hero roll with all modifiers, kin perks and the shard reroll prompt. */
+async function heroRoll(a, mod, label, kind = 'combat') {
+  let n = attr(a) + mod;
+  if (S.fae) { n += 1; S.fae = 0; }
+  const tray = G.mode === 'combat' ? $('#tray') : null;
+  let res = rawRoll(n);
+  if (tray) await showRoll(tray, label, n, res);
+  if (S.glitch && res.r < 4) {
+    S.glitch = 0;
+    const i = res.dice.indexOf(Math.min(...res.dice));
+    res.dice[i] = d4();
+    res = { ...res, r: res.low ? Math.min(...res.dice) : Math.max(...res.dice), fours: res.dice.filter(v => v === 4).length };
+    if (tray) { clog('<b>Glitch!</b> A die flickers and rerolls…', 'gold'); await showRoll(tray, label, n, res); }
+  }
+  if (res.r < 4 && S.rerolls > 0 && tray) {
+    const use = await subPrompt(`Rolled a ${res.r}. Use a Prism Shard to reroll every die that isn’t a 4? (${S.rerolls} left)`, [{ label:'Keep it', v:false }, { label:'Shard Reroll', v:true }]);
+    if (use) {
+      S.rerolls--;
+      res.dice = res.dice.map(v => v === 4 ? 4 : d4());
+      res = { ...res, r: res.low ? Math.min(...res.dice) : Math.max(...res.dice), fours: res.dice.filter(v => v === 4).length };
+      clog('The shard glows — the dice roll again!', 'gold'); SFX.magic();
+      await showRoll(tray, label, n, res);
+    }
+  }
+  if (tray) {
+    const [c, t] = verdictText(res.r, kind);
+    const v = document.createElement('span'); v.className = 'verdict ' + c;
+    v.textContent = `→ ${res.r}: ${t}${res.r === 4 && res.fours > 1 ? ` (+${res.fours - 1} EXTRA)` : ''}`;
+    tray.appendChild(v);
+  }
+  updateSheet();
+  return res;
+}
+/* Field rolls show in a dialog. */
+async function fieldRoll(a, mod, label) {
+  const n = attr(a) + mod + (S.fae ? 1 : 0); S.fae = 0;
+  const res = rawRoll(n);
+  SFX.roll();
+  const dice = res.dice.map((v, i) => `<img class="die${v === res.r || (v === 4 && !res.low) ? '' : ' dim'}" alt="${v}" src="${dieIcon(v, v === res.r)}">`).join(' ');
+  return { ...res, html:`<p class="tray">${label} · ${n <= 0 ? '2D lowest' : n + 'D'} ${dice}</p>` };
+}
+
+/* ============================================================
+   FIELD: movement & interaction
+   ============================================================ */
+const walkable = ch => '.,fvHZMKGXWDUp*'.includes(ch) || ch === 'd';
+function entAt(x, y) { return G.ents.find(e => e.x === x && e.y === y); }
+function canAct() { return S && G.mode === 'play' && !G.busy && !G.dlg; }
+
+async function tryMove(d) {
+  if (!canAct()) return;
+  S.face = d;
+  const [dx, dy] = DIRV[d], nx = S.x + dx, ny = S.y + dy;
+  if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) return;
+  const e = entAt(nx, ny);
+  if (e) {
+    if (e.dormant) { e.dormant = false; say('The statue’s eyes flare red — it’s alive!', 'bad'); }
+    e.hidden = false;
+    return startCombat(e, false);
+  }
+  const ch = G.grid[ny][nx];
+  if (ch === 'd') return useDoor(dirAt(nx, ny));
+  if (ch === '~' && G.swim === G.room.id) return step(nx, ny);
+  if (walkable(ch)) {
+    if (ch === 'v') return trapStep(nx, ny, dx, dy);
+    return step(nx, ny);
+  }
+  return bumpInto(ch, nx, ny, dx, dy);
+}
+function step(nx, ny) {
+  S.x = nx; S.y = ny; G.frame++; SFX.step();
+  const ch = G.grid[ny][nx];
+  pickup(ch, nx, ny);
+  if (G.mode !== 'play') return;
+  if (ch === 'D' || ch === 'U') return useStairs(ch);
+  if (ch === 'W') return useWarp();
+  afterStep();
+}
+function afterStep() {
+  // ambushers reveal themselves when you come close
+  for (const e of G.ents) {
+    if (e.hidden && Math.max(Math.abs(e.x - S.x), Math.abs(e.y - S.y)) <= 1) {
+      e.hidden = false; say(`A ${ENEMIES[e.kind].name.toLowerCase()} leaps out of hiding!`, 'bad');
+      return startCombat(e, true);
+    }
+  }
+  // monsters shuffle about and bump into you
+  for (const e of G.ents) {
+    if (e.hidden || e.dormant || e.boss) continue;
+    if (e.calm > 0) { e.calm--; continue; }
+    if (Math.random() > .4) continue;
+    const toward = Math.random() < .5;
+    let d;
+    if (toward) { const ddx = Math.sign(S.x - e.x), ddy = Math.sign(S.y - e.y); d = Math.abs(S.x - e.x) > Math.abs(S.y - e.y) ? [ddx, 0] : [0, ddy]; }
+    else d = pick([[1, 0], [-1, 0], [0, 1], [0, -1]]);
+    const tx = e.x + d[0], ty = e.y + d[1];
+    if (tx === S.x && ty === S.y) { say(`The ${ENEMIES[e.kind].name.toLowerCase()} lunges at you!`, 'bad'); return startCombat(e, true); }
+    const tc = G.grid[ty] && G.grid[ty][tx];
+    if ((tc === '.' || tc === ',' || tc === 'f') && !entAt(tx, ty)) { e.x = tx; e.y = ty; }
+  }
+}
+function pickup(ch, x, y) {
+  const done = () => setMod(x, y, '.');
+  if (ch === 'H') { S.hearts = Math.min(S.maxH, S.hearts + 1); done(); SFX.coin(); say('A heart! +1 heart.', 'good'); }
+  else if (ch === 'Z') { S.energy = Math.min(S.maxE, S.energy + 1); done(); SFX.coin(); say('A spark of energy! +1 energy.', 'good'); }
+  else if (ch === 'M') { S.meals = Math.min(5, S.meals + 1); done(); SFX.coin(); say('You pick up a hearty meal.', 'good'); }
+  else if (ch === 'K') { S.keys++; done(); SFX.chest(); say('You got a <b>key</b>!', 'gold'); }
+  else if (ch === 'G') { const n = 2 * d4(); S.gems += n; done(); SFX.coin(); say(`+${n} gems.`, 'good'); }
+  else if (ch === 'X') { done(); collectShard(); }
+  updateSheet();
+}
+async function bumpInto(ch, x, y, dx, dy) {
+  const R = G.room;
+  switch (ch) {
+    case 'C': return openChest(x, y);
+    case 'c': say('The chest is empty.'); return;
+    case 'P': {
+      setMod(x, y, '.'); SFX.hit();
+      const L = rollLoot(true);
+      if (L.monster) {
+        const kind = L.monster;
+        G.ents.push({ id:'pot' + G.t, kind, x, y, boss:false, hidden:false, dormant:false, calm:0, tmp:1 });
+        say(`You smash the pot — a ${ENEMIES[kind].name.toLowerCase()} pops out!`, 'bad');
+        return startCombat(G.ents[G.ents.length - 1], true);
+      }
+      say('You smash the pot. ' + L.text, L.got ? 'good' : '');
+      updateSheet(); return;
+    }
+    case 'N': {
+      const npc = NPCS[G.npcAt[x + ',' + y]]; if (!npc) return;
+      const txt = npc.talk(); if (typeof txt === 'string') await dialog(npc.name, `<p>${txt}</p>`);
+      return;
+    }
+    case 'S': await dialog('Sign', `<p>${G.signAt[x + ',' + y]}</p>`); return;
+    case 'F': {
+      S.hearts = S.maxH; S.energy = S.maxE; S.rerolls = S.shards; SFX.magic(); updateSheet();
+      await dialog('Pixie Fountain', '<p>Tiny lights swirl around you as you bathe. <b>All hearts and energy restored.</b></p>');
+      return;
+    }
+    case 'O': SFX.stairs(); return go(R.enter, 7, 9);
+    case 'Q': say(`A shimmering barrier. It hums angrily. (${S.shards}/3 Prism Shards)`, 'az'); SFX.bump(); return;
+    case 'T': say('A torch flickers on its stand.'); return;
+    case 'R': say('A weathered stone statue.'); return;
+    case 'h': return;
+    case 'i':
+      if (has('lantern')) { setMod(x, y, 'I'); SFX.magic(); say('You light the brazier with your lantern.', 'gold'); checkSolve(); }
+      else say('A cold, unlit brazier. If only you had a flame…');
+      return;
+    case 'I': say('The brazier crackles merrily.'); return;
+    case 'o':
+      if (has('hammer')) { setMod(x, y, '.'); SFX.boom(); flash(); say('CRACK! You smash the boulder to gravel.', 'gold'); }
+      else say('A huge boulder. Something heavy could smash it.');
+      return;
+    case '%': setMod(x, y, '.'); SFX.hit(); say(`You hack through the vines with your ${KINS[S.hero.kin].weapon.toLowerCase()}.`); return;
+    case 'k': case 'j': return pushBlock(x, y, dx, dy);
+    case '_': return crossGap(x, y, dx, dy, 'pit');
+    case '~': return crossGap(x, y, dx, dy, 'water');
+    case '^': {
+      if (S.hero.kin === 'skyling') return crossGap(x, y, dx, dy, 'lava');
+      say('Bubbling lava! Falling in would cost you 2 hearts.', 'bad'); SFX.bump(); return;
+    }
+    default: SFX.bump();
+  }
+}
+async function crossGap(x, y, dx, dy, kind) {
+  const isGap = c => c === '_' || c === '~' || c === '^';
+  // find landing beyond
+  let n = 0, lx = x, ly = y;
+  while (G.grid[ly] && isGap(G.grid[ly][lx]) && n < 6) { lx += dx; ly += dy; n++; }
+  const land = G.grid[ly] && walkable(G.grid[ly][lx]) && G.grid[ly][lx] !== 'd' && !entAt(lx, ly);
+  const opts = [];
+  if (kind === 'pit' && has('hook') && land) opts.push({ label:'Grapple Hook', v:'hook' });
+  if (kind === 'water' && has('wand') && land) opts.push({ label:`Frost Wand (1 energy)`, v:'wand', disabled:S.energy < 1 });
+  if (kind === 'water' && S.hero.kin === 'tide') opts.push({ label:'Swim (1 energy)', v:'swim', disabled:S.energy < 1 });
+  if (S.hero.kin === 'skyling' && land && n <= 2) opts.push({ label:'Glide (1 energy)', v:'glide', disabled:S.energy < 1 });
+  const what = kind === 'pit' ? 'A deep pit blocks your way.' : kind === 'water' ? 'Deep water blocks your way.' : 'Lava blocks your way.';
+  if (!opts.length) {
+    SFX.bump();
+    say(what + (kind === 'pit' ? ' You’d need a way to swing across.' : kind === 'water' ? ' Too deep to wade.' : ''));
+    return;
+  }
+  const v = await dialog('Obstacle', `<p>${what}${land ? '' : ' (There’s nowhere to land straight ahead.)'}</p>`, [{ label:'Never mind', v:null }, ...opts]);
+  if (!v) return;
+  if (v === 'hook') { SFX.magic(); say('Thwip! Your hook bites and you zip across.', 'gold'); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
+  else if (v === 'glide') { S.energy--; SFX.magic(); say('You spread your feathers and glide across!', 'gold'); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
+  else if (v === 'swim') { S.energy--; G.swim = G.room.id; SFX.magic(); say('You dive in. (You can swim freely in this room.)', 'gold'); step(x, y); }
+  else if (v === 'wand') {
+    S.energy--; SFX.magic();
+    let cx = x, cy = y;
+    while (G.grid[cy][cx] === '~') { setMod(cx, cy, '*'); cx += dx; cy += dy; }
+    say('A blast of frost freezes an ice bridge across the water!', 'az');
+  }
+  updateSheet();
+}
+async function trapStep(nx, ny, dx, dy) {
+  setMod(nx, ny, '_');
+  const r = await fieldRoll('nerve', 0, 'NERVE');
+  let msg;
+  if (r.r <= 2) { S.hearts--; SFX.hurt(); flash(); msg = 'The floor gives way! You tumble into a pit trap and climb back out. <b>–1 heart.</b>'; }
+  else if (r.r === 3) { SFX.bump(); msg = 'The floor drops away — you stop just in time!'; }
+  else {
+    const lx = nx + dx, ly = ny + dy;
+    if (G.grid[ly] && walkable(G.grid[ly][lx]) && G.grid[ly][lx] !== 'v' && G.grid[ly][lx] !== 'd' && !entAt(lx, ly)) { S.x = lx; S.y = ly; }
+    SFX.magic(); msg = 'The floor drops away — you leap across without thinking!';
+  }
+  updateSheet();
+  await dialog('Pit Trap!', r.html + `<p>${msg}</p>`);
+  if (S.hearts <= 0) return faint();
+}
+function pushBlock(x, y, dx, dy) {
+  const tx = x + dx, ty = y + dy, tc = G.grid[ty] && G.grid[ty][tx];
+  if (!(tc === '.' || tc === 'p' || tc === ',') || entAt(tx, ty)) { SFX.bump(); say('The block won’t budge that way.'); return; }
+  const from = G.grid[y][x];
+  setMod(x, y, from === 'j' ? 'p' : '.');
+  setMod(tx, ty, tc === 'p' ? 'j' : 'k');
+  SFX.bump(); S.x = x; S.y = y; G.frame++;
+  if (tc === 'p') { SFX.door(); say('The block slides onto the plate. Click!'); }
+  checkSolve();
+}
+function checkSolve() {
+  const R = G.room; if (!R.solve || S.solved[R.id]) return;
+  const g = G.grid; let ok = false;
+  if (R.solve.type === 'plates') ok = !g.some(r => r.includes('p'));
+  if (R.solve.type === 'braziers') ok = !g.some(r => r.includes('i'));
+  if (R.solve.type === 'clear') ok = G.ents.length === 0;
+  if (!ok) return;
+  S.solved[R.id] = 1;
+  const [x, y, ch] = R.solve.spawn;
+  setMod(x, y, ch);
+  SFX.chest(); say(R.solve.msg, 'gold'); save();
+}
+async function useDoor(d) {
+  const R = G.room, ex = R.exits[d];
+  if (R.boss && G.ents.some(e => e.boss)) { say('The door has sealed shut behind you!', 'bad'); SFX.bump(); return; }
+  const st = lockState(d), id = doorId(R.id, ex.to);
+  if (st === 'hidden') { SFX.bump(); return; }
+  if (st === 'key') {
+    if (S.keys < 1) { SFX.bump(); say('Locked. You need a key.'); return; }
+    S.keys--; S.opened[id] = 1; SFX.door(); say('You unlock the door. The key crumbles to dust.', 'gold'); updateSheet(); save(); return;
+  }
+  if (st === 'boss') {
+    if (!S.bigkeys[R.dg]) { SFX.bump(); say('A great door with a skull-shaped lock. You need this dungeon’s <b>Big Key</b>.'); return; }
+    S.bigkeys[R.dg] = 0; S.opened[id] = 1; SFX.door(); say('The Big Key turns with a heavy CLUNK. The way is open…', 'gold'); updateSheet(); save(); return;
+  }
+  if (st === 'vine') { S.opened[id] = 1; SFX.hit(); say('You cut through the curtain of vines — a hidden passage!', 'gold'); save(); return; }
+  if (st === 'crack') {
+    if (S.bombs < 1) { SFX.bump(); say('A cracked wall. A bomb would blow it open.'); return; }
+    S.bombs--; S.opened[id] = 1; SFX.boom(); flash(); say('You light a bomb… <b>BOOM!</b> The wall crumbles.', 'gold'); updateSheet(); save(); return;
+  }
+  const at = ex.at || INWARD[OPP[d]];
+  go(ex.to, at[0], at[1]);
+}
+function useStairs(ch) {
+  const R = G.room, to = ch === 'U' ? R.up : R.down;
+  if (!to) return;
+  SFX.stairs();
+  const [x, y] = findTile(ROOMS[to], ch === 'U' ? 'D' : 'U');
+  // step off the stairs so you don't bounce straight back
+  loadRoom(to, x, y);
+  const free = [[0, 1], [1, 0], [-1, 0], [0, -1]].map(([a, b]) => [x + a, y + b]).find(([a, b]) => '.,f'.includes(G.grid[b][a]) && !entAt(a, b));
+  if (free) { S.x = free[0]; S.y = free[1]; }
+  say(`You climb ${ch === 'U' ? 'up' : 'down'} the stairs. ${ROOMS[to].name}.`);
+}
+function useWarp() {
+  const w = G.room.warp; if (!w) return;
+  SFX.magic(); say('The light carries you back outside.', 'az');
+  loadRoom(w.to, w.at[0], w.at[1]);
+}
+
+/* ---------- chests & loot ---------- */
+function rollLoot(pot) {
+  const v = d4() * 10 + d4();
+  if (v <= 14) return pot ? { monster:pick(['rat', 'skull', 'bat', 'slime']) } : { text:'Nothing.' };
+  if (v <= 24) return { text:'Nothing inside.' };
+  if (v === 31) { const n = 2 * d4(); S.gems += n; return { got:1, text:`+${n} gems.` }; }
+  if (v === 32) { S.energy = Math.min(S.maxE, S.energy + 1); return { got:1, text:'+1 energy.' }; }
+  if (v <= 34) { S.hearts = Math.min(S.maxH, S.hearts + 1); return { got:1, text:'+1 heart.' }; }
+  if (v === 41) { S.snacks = Math.min(5, S.snacks + 1); return { got:1, text:'A snack!' }; }
+  if (v === 42) { S.meals = Math.min(5, S.meals + 1); return { got:1, text:'A meal!' }; }
+  if (v === 43) { S.bombs = Math.min(20, S.bombs + 1); return { got:1, text:'A bomb!' }; }
+  S.hearts = S.maxH; return { got:1, text:'A pixie! It flits around you — all hearts restored.' };
+}
+function addItem(id) {
+  if (S.inv.length >= S.pouch) return false;
+  S.inv.push(id); return true;
+}
+async function openChest(x, y) {
+  const c = G.chestAt[x + ',' + y] || { gems:10 };
+  let title = 'Treasure!', body = '', ic = null;
+  if (c.gems) { S.gems += c.gems; body = `${c.gems} gems!`; ic = icon('gem', 'gem'); }
+  else if (c.key) { S.keys++; body = 'A small <b>key</b>. It opens any normal lock, once.'; ic = icon('key', 'key'); }
+  else if (c.bigkey) { S.bigkeys[c.bigkey] = 1; title = 'Big Key!'; body = `The <b>Big Key</b> of the ${DG[c.bigkey].name}. It opens the boss door.`; ic = icon('bigkey', 'bigkey'); }
+  else if (c.bombs) { S.bombs = Math.min(20, S.bombs + c.bombs); body = `${c.bombs} bombs! Bombs blow open cracked walls and deal 2 damage in battle.`; ic = icon('bomb', 'bomb'); }
+  else if (c.heartc) { S.maxH = Math.min(12, S.maxH + 1); S.hearts = S.maxH; title = 'Heart Container!'; body = 'Your maximum hearts increase by one — and all hearts are restored.'; ic = icon('hcont', 'hcont'); }
+  else if (c.econt) { S.maxE = Math.min(12, S.maxE + 1); S.energy = S.maxE; title = 'Energy Container!'; body = 'Your maximum energy increases by one — and all energy is restored.'; ic = icon('econt', 'econt'); }
+  else if (c.pouch) {
+    ic = icon('pouch', 'pouch');
+    if (S.pouch < 8) { S.pouch = 8; title = 'Large Pouch!'; body = 'You can now carry <b>8 items</b>.'; }
+    else { S.gems += 50; body = 'You already have a large pouch — but there are 50 gems inside!'; ic = icon('gem', 'gem'); }
+  } else if (c.item) {
+    const it = ITEMS[c.item];
+    if (!addItem(c.item)) { SFX.bump(); await dialog('Pouch Full', '<p>Your pouch is full! Tap an item on your hero sheet to drop it, then try again.</p>'); return; }
+    title = it.name + '!'; body = it.desc; ic = icon(it.icon, it.pal);
+  }
+  setMod(x, y, 'c'); SFX.chest(); updateSheet(); save();
+  await dialog(title, `<p>${body}</p>`, undefined, ic);
+  // touching the treasure wakes the guardians
+  if (G.room.dormant) {
+    const sleepers = G.ents.filter(e => e.dormant);
+    if (sleepers.length) {
+      sleepers.forEach(e => e.dormant = false);
+      say('Stone grinds on stone — the statues come to life!', 'bad');
+      const nearest = sleepers.sort((a, b) => (Math.abs(a.x - S.x) + Math.abs(a.y - S.y)) - (Math.abs(b.x - S.x) + Math.abs(b.y - S.y)))[0];
+      startCombat(nearest, true);
+    }
+  }
+}
+async function collectShard() {
+  S.shards++; S.rerolls = S.shards; S.bosses[G.room.dg] = 1;
+  S.maxH = Math.min(12, S.maxH + 1); S.hearts = S.maxH; S.energy = S.maxE;
+  SFX.win(); updateSheet(); save();
+  if (G.room.dg === 'keep') return ending();
+  await dialog('Prism Shard!', `<p>You claim a <b>Prism Shard</b>! (${S.shards}/3)</p><p>Your maximum hearts grow by one, and all hearts and energy are restored. The shard also lets you <b>reroll</b> a bad roll once — it recharges whenever you rest in the village.</p>${S.shards >= 3 ? '<p>All three shards pulse together. <b>The barrier at the Keep Approach has fallen!</b></p>' : ''}`, undefined, icon('shard', 'shard'));
+  if (G.room.warpAt) { const [wx, wy] = G.room.warpAt; setMod(wx, wy, 'W'); say('A shimmering light appears — step in to leave the dungeon.', 'az'); }
+}
+
+/* ---------- field actions ---------- */
+async function fieldInspect() {
+  if (!canAct()) return;
+  G.busy = true;
+  const r = await fieldRoll('wits', S.hero.kin === 'sprig' ? 0 : 0, 'WITS');
+  let out = [];
+  if (r.r >= 3) {
+    let found = false;
+    for (const d in G.room.exits) {
+      const ex = G.room.exits[d];
+      if ((ex.lock === 'vine' || ex.lock === 'crack') && !S.found[doorId(G.room.id, ex.to)]) {
+        S.found[doorId(G.room.id, ex.to)] = 1; found = true;
+        out.push(ex.lock === 'vine' ? '<b>You spot a passage hidden behind the vines!</b>' : '<b>You spot a crack in the wall!</b> A bomb could open it.');
+      }
+    }
+    let traps = 0;
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (G.grid[y][x] === 'v') { setMod(x, y, '_'); traps++; }
+    if (traps) { out.push(`<b>You spot ${traps} hidden pit trap${traps > 1 ? 's' : ''}!</b>`); found = true; }
+    const hid = G.ents.filter(e => e.hidden);
+    if (hid.length) { out.push(`Something is lurking in the shadows… ${hid.length} of them.`); found = true; }
+    if (G.room.inspect) out.unshift(G.room.inspect);
+    else if (!found) out.push('Nothing seems out of place here.');
+    if (found) SFX.magic();
+  } else out.push('You poke around, but nothing catches your eye.');
+  save();
+  await dialog('Inspect', r.html + out.map(s => `<p>${s}</p>`).join(''));
+  G.busy = false;
+}
+async function fieldSpecial() {
+  if (!canAct()) return;
+  const k = S.hero.kin;
+  if (S.energy < 1) { say('Not enough energy for your kin special.'); return; }
+  if (k === 'sylph') { if (S.fae) return say('You’re already focused.'); S.energy--; S.fae = 1; say('You focus. <b>+1D</b> on your next roll.', 'gold'); }
+  else if (k === 'stone') { if (S.stone) return say('Your skin is already stone.'); S.energy--; S.stone = 1; say('Your skin hardens to stone. The next heart you’d lose is ignored.', 'gold'); }
+  else if (k === 'glitch') { if (S.glitch) return say('You’re already flickering.'); S.energy--; S.glitch = 1; say('You flicker… your next poor roll will reroll a die.', 'gold'); }
+  else if (k === 'tide') say('Walk into deep water to swim (1 energy per room). In battle, use OTHER for Riptide.');
+  else if (k === 'skyling') say('Walk into a pit, water or lava (up to 2 tiles wide) to glide over it. In battle, OTHER lets you fly away.');
+  else if (k === 'sprig') say('In battle, use OTHER to vanish and slip away from a normal fight.');
+  SFX.magic(); updateSheet();
+}
+function fieldEat(kind) {
+  if (!canAct()) return;
+  if (kind === 'snack' && S.snacks) { S.snacks--; S.hearts = Math.min(S.maxH, S.hearts + 1); S.energy = Math.min(S.maxE, S.energy + 1); say('Crunch! +1 heart, +1 energy.', 'good'); }
+  if (kind === 'meal' && S.meals) { S.meals--; S.hearts = Math.min(S.maxH, S.hearts + 3); S.energy = Math.min(S.maxE, S.energy + 3); say('A proper meal. +3 hearts, +3 energy.', 'good'); }
+  SFX.coin(); updateSheet(); save();
+}
+async function itemInfo(i) {
+  if (G.dlg) return;
+  const id = S.inv[i], it = ITEMS[id];
+  const btns = [{ label:'Close', v:null }];
+  if (it.field && G.mode === 'play') btns.push({ label:'Use', v:'use' });
+  if (it.drop && G.mode === 'play') btns.unshift({ label:'Drop', v:'drop' });
+  const v = await dialog(it.name, `<p>${it.desc}</p>${it.key ? '<p><em>A key item — it can’t be dropped.</em></p>' : ''}`, btns, icon(it.icon, it.pal));
+  if (v === 'drop') { S.inv.splice(i, 1); say(`You drop the ${it.name}.`); }
+  if (v === 'use') { S.inv.splice(i, 1); if (id === 'hpot') S.hearts = S.maxH; if (id === 'epot') S.energy = S.maxE; SFX.magic(); say(`You drink the ${it.name}.`, 'good'); }
+  updateSheet(); save();
+}
+
+/* ---------- shop & gambling ---------- */
+const SHOP = [
+  { id:'snack', name:'Snack', price:5, desc:'+1 heart, +1 energy.', ic:['snack','snack'], ok:() => S.snacks < 5, buy:() => S.snacks++ },
+  { id:'meal', name:'Meal', price:10, desc:'+3 hearts, +3 energy.', ic:['meal','meal'], ok:() => S.meals < 5, buy:() => S.meals++ },
+  { id:'bomb', name:'Bomb', price:5, desc:'Opens cracked walls. 2 damage in battle.', ic:['bomb','bomb'], ok:() => S.bombs < 20, buy:() => S.bombs++ },
+  { id:'epot', name:'Energy Potion', price:20, desc:'Restores all energy. Takes a slot.', ic:['potion','epot'], ok:() => S.inv.length < S.pouch, buy:() => S.inv.push('epot') },
+  { id:'hpot', name:'Heart Potion', price:30, desc:'Restores all hearts. Takes a slot.', ic:['potion','hpot'], ok:() => S.inv.length < S.pouch, buy:() => S.inv.push('hpot') },
+  { id:'lantern', name:'Lantern', price:40, desc:'Lights dark rooms and braziers.', ic:['lantern','lantern'], ok:() => !has('lantern') && S.inv.length < S.pouch, buy:() => S.inv.push('lantern') },
+  { id:'key', name:'Key', price:30, desc:'Opens any normal lock, once.', ic:['key','key'], ok:() => S.keys < 4, buy:() => S.keys++ },
+  { id:'pouch', name:'Large Pouch', price:60, desc:'Carry 8 items instead of 4.', ic:['pouch','pouch'], ok:() => S.pouch < 8, buy:() => S.pouch = 8 },
+  { id:'econt', name:'Energy Container', price:100, desc:'+1 max energy.', ic:['econt','econt'], ok:() => S.maxE < 12, buy:() => { S.maxE++; S.energy = S.maxE; } },
+  { id:'hcont', name:'Heart Container', price:150, desc:'+1 max heart.', ic:['hcont','hcont'], ok:() => S.maxH < 12, buy:() => { S.maxH++; S.hearts = S.maxH; } }
+];
+async function openShop() {
+  for (;;) {
+    const list = SHOP.map(s => `<div class="shopitem"><img alt="" src="${icon(s.ic[0], s.ic[1])}"><div><b>${s.name} · ${s.price}g</b><span>${s.desc}</span></div><button class="btn small" data-buy="${s.id}" ${S.gems >= s.price && s.ok() ? '' : 'disabled'}>Buy</button></div>`).join('');
+    const p = dialog('Brindle’s Wares', `<p>Gems, gems, lovely gems! You have <b>${S.gems}</b>.</p><div class="shoplist">${list}</div>`, [{ label:'Done', v:'done' }]);
+    document.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => dlgResolve(b.dataset.buy));
+    const v = await p;
+    if (v === 'done' || !v) break;
+    const s = SHOP.find(x => x.id === v);
+    if (s && S.gems >= s.price && s.ok()) { S.gems -= s.price; s.buy(); SFX.coin(); updateSheet(); save(); }
+  }
+}
+async function openGamble() {
+  for (;;) {
+    const v = await dialog('Lucky Fen', `<p>Five gems, one roll of your <b>WITS</b>! Roll a 1–2 and I keep them. A 3 and you get them back. A 4 and you win <b>ten</b>! You have <b>${S.gems}</b> gems.</p>`, [{ label:'No thanks', v:false }, { label:'Play (5g)', v:true, disabled:S.gems < 5 }]);
+    if (!v) break;
+    S.gems -= 5;
+    const r = await fieldRoll('wits', 0, 'WITS');
+    let m;
+    if (r.r <= 2) m = 'Ha! Better luck next time.';
+    else if (r.r === 3) { S.gems += 5; m = 'A draw — have your gems back.'; }
+    else { S.gems += 15; m = 'Curses! You win ten gems!'; SFX.coin(); }
+    updateSheet(); save();
+    await dialog('Lucky Fen', r.html + `<p>${m}</p>`);
+  }
+}
+
+/* ============================================================
+   COMBAT
+   ============================================================ */
+const alive = f => f.hp > 0;
+const isStun = f => f.stunTo >= G.cb.round;
+function foeName(f) { return f.def.name.replace(/^The /, 'the '); }
+
+async function startCombat(first, ambush) {
+  if (G.mode === 'combat') return;
+  G.mode = 'combat'; G.busy = true;
+  const group = [first];
+  if (!first.boss) for (const e of G.ents) if (e !== first && !e.hidden && !e.dormant && !e.boss && Math.max(Math.abs(e.x - S.x), Math.abs(e.y - S.y)) <= 1) group.push(e);
+  G.cb = {
+    round:0, t:0, capeTo:-1, boss:!!first.boss,
+    foes: group.map(e => { const d = ENEMIES[e.kind]; return { e, def:d, hp:d.hp, max:d.hp, armor:d.armor || 0, stunTo:-1, frozenTo:-1, exposed:false, move:null }; })
+  };
+  $('#field').hidden = true; $('#battle').hidden = false; $('#clog').innerHTML = ''; $('#tray').innerHTML = ''; $('#sub').hidden = true;
+  updateSheet();
+  const names = G.cb.foes.map(f => f.def.name).join(', ');
+  clog(G.cb.boss ? `<b>${names}</b> awakens! The door seals behind you.` : `Battle! ${names}.`, 'gold');
+  if (G.cb.boss) clog('Bosses can’t be hurt the normal way. INSPECT to learn its weakness.');
+  SFX.hit();
+  if (ambush && !G.cb.boss) {
+    clog('You’re caught off guard — DEFEND!', 'bad');
+    renderFoes();
+    for (const f of G.cb.foes) { await forcedDefend(f, G.cb.foes.length > 1 ? -1 : 0, true); if (S.hearts <= 0) break; }
+    if (S.hearts <= 0) { G.busy = false; return faint(); }
+  }
+  newRound();
+  setBusy(false);
+}
+function newRound() {
+  const cb = G.cb; cb.round++;
+  const lines = [];
+  for (const f of cb.foes) {
+    if (f.def.boss) {
+      const r = d4();
+      f.move = f.def.boss === 'king' ? (r <= 2 ? 'special' : ['attack', 'move', 'guard'][r - 2] || 'guard') : ['special', 'attack', 'move', 'guard'][r - 1];
+      if (f.def.boss === 'king' && r === 3) f.move = 'attack';
+      if (f.def.boss === 'king' && r === 4) f.move = pick(['move', 'guard']);
+      // a frozen wyrm can't dive or slip away
+      if (f.def.boss === 'wyrm' && f.frozenTo >= cb.round && (f.move === 'guard' || f.move === 'move')) f.move = 'attack';
+      if (f.def.boss === 'wyrm' && f.frozenTo >= cb.round) lines.push('<b>The wyrm is frozen in the ice!</b>');
+      lines.push(`<b>${f.def.name}</b> ${f.def.moves[f.move]}`);
+    } else if (f.def.elec) {
+      f.elec = cb.round % 2 === 0;
+      lines.push(f.elec ? `The ${f.def.name.toLowerCase()} <b>crackles with electricity!</b> Melee attacks count as a 1.` : `The ${f.def.name.toLowerCase()} drifts toward you.`);
+    } else if (f.def.dive) {
+      f.sub = cb.round % 2 === 0;
+      lines.push(f.sub ? `The ${f.def.name.toLowerCase()} ducks underwater — out of reach.` : `The ${f.def.name.toLowerCase()} surfaces and squirts ink!`);
+    } else if (isStun(f)) lines.push(`The ${f.def.name.toLowerCase()} is <b>stunned</b>.`);
+    else lines.push(`The ${f.def.name.toLowerCase()} ${pick(['closes in.', 'snarls and attacks.', 'lunges for you.', 'circles you.'])}`);
+  }
+  $('#intent').innerHTML = `<b>ROUND ${cb.round}</b> — ` + lines.join(' ');
+  if (!alive(cb.foes[cb.t] || {})) cb.t = 0;
+  renderFoes(); renderActs();
+}
+function renderFoes() {
+  const cb = G.cb, el = $('#foes'); el.innerHTML = '';
+  cb.foes.forEach((f, i) => {
+    const b = document.createElement('button'); b.className = 'foe'; b.setAttribute('aria-pressed', i === cb.t);
+    const c = document.createElement('canvas'); c.width = c.height = 16;
+    drawSprite(c.getContext('2d'), f.def.spr, SPAL[f.def.pal], 0, 0, 2);
+    let pips = ''; for (let k = 0; k < f.max; k++) pips += `<img alt="" src="${icon('heart', k < f.hp ? 'heart' : 'heartE')}">`;
+    const tags = [];
+    if (f.armor > 0) tags.push(`armour ×${f.armor} (–${f.armor}D)`);
+    if (f.exposed) tags.push('weakness found +1D');
+    if (isStun(f)) tags.push('STUNNED');
+    if (f.frozenTo >= cb.round) tags.push('FROZEN');
+    if (f.elec) tags.push('ELECTRIC');
+    if (f.sub) tags.push('UNDERWATER');
+    b.innerHTML = `<span><span class="fn">${f.def.name}</span><span class="pips">${pips}</span><span class="tags">${tags.join(' · ')}</span></span>`;
+    b.prepend(c);
+    b.onclick = () => { cb.t = i; renderFoes(); };
+    el.appendChild(b);
+  });
+}
+function renderActs() {
+  const cb = G.cb;
+  document.querySelectorAll('#acts .btn').forEach(b => {
+    const a = b.dataset.a;
+    b.disabled = G.busy || (a === 'escape' && cb.boss);
+  });
+}
+function setBusy(v) { G.busy = v; renderActs(); }
+function subPrompt(text, buttons) {
+  const sub = $('#sub'); sub.hidden = false;
+  sub.innerHTML = `<p>${text}</p>`;
+  return new Promise(res => {
+    buttons.forEach(b => {
+      const el = document.createElement('button'); el.className = 'btn small'; el.disabled = !!b.disabled;
+      el.innerHTML = (b.ic ? `<img alt="" src="${b.ic}">` : '') + b.label;
+      el.onclick = () => { sub.hidden = true; res(b.v); };
+      sub.appendChild(el);
+    });
+  });
+}
+function bossMove(f) { return f.def.boss ? f.move : null; }
+function dmgOn(f, r) { return f.def.boss && f.move === 'special' ? (r <= 2 ? 2 : 1) : 1; }
+
+/* Losing hearts, with cape and stone skin. */
+function hurt(n, f) {
+  const cb = G.cb;
+  if (cb && cb.capeTo >= cb.round) { clog('Your cape shimmers — the blow passes right through you!', 'gold'); return; }
+  if (S.stone) { S.stone = 0; clog('Stone skin! You shrug the blow off.', 'gold'); return; }
+  S.hearts = Math.max(0, S.hearts - n);
+  SFX.hurt(); flash(); G.hurtT = 20;
+  clog(`You lose ${n} heart${n > 1 ? 's' : ''}!`, 'bad');
+  if (f && f.def.drain && S.energy > 0) { S.energy--; clog('The ghost’s touch drains 1 energy.', 'bad'); }
+  updateSheet();
+}
+/* Whether the current action against f puts you in danger. */
+function dangerous(f) {
+  if (isStun(f)) return false;
+  if (f.def.boss && f.move === 'guard') return false;
+  if (f.sub) return false;
+  return true;
+}
+/* Apply the danger rule for a roll: 1–2 hurts, 3 hurts unless defending/ranged. */
+function applyDanger(f, r, mode) {
+  if (!dangerous(f)) return;
+  if (r <= 2) hurt(dmgOn(f, r), f);
+  else if (r === 3 && mode === 'melee') hurt(dmgOn(f, r), f);
+}
+function rollMods(f, multi) {
+  let m = multi;
+  if (f.def.boss && f.move === 'move') m -= 1;
+  return m;
+}
+/* Deal damage, respecting each boss's weakness. Returns true if it landed. */
+function damage(f, n, how = {}) {
+  const b = f.def.boss, cb = G.cb;
+  if (b && f.move === 'guard') { clog(`${f.def.name} is guarding — no effect!`); return false; }
+  if (f.sub) { clog('It’s underwater — you can’t reach it!'); return false; }
+  if (b === 'warden' && f.armor > 0) {
+    const off = Math.min(f.armor, how.bomb ? 2 : n);
+    f.armor -= off; SFX.hit();
+    clog(`Clang! You tear off ${off} piece${off > 1 ? 's' : ''} of armour.${f.armor === 0 ? ' <b>The red eye is exposed!</b>' : ''}`, 'gold');
+    return true;
+  }
+  if (b === 'golem' && !how.stone && !how.bomb) { clog('CLANG! Your weapon bounces off its molten crust. You need something heavier…'); return false; }
+  if (b === 'wyrm' && f.frozenTo < cb.round) { clog('The wyrm slips beneath the surface — your attack splashes uselessly.'); return false; }
+  if (b === 'king' && !isStun(f)) { clog('Your blow sinks into his shadow and does nothing!'); return false; }
+  if (f.def.stone && how.stone && !b) n += 1;
+  f.hp = Math.max(0, f.hp - n); SFX.hit();
+  clog(`You hit ${foeName(f)} for ${n}!`, 'good');
+  if (f.hp === 0 && f.def.reform && !how.crush) f.reform = true;
+  return true;
+}
+async function forcedDefend(f, multi, silent) {
+  if (!alive(f) || isStun(f) || f.sub || (f.def.boss && f.move === 'guard')) return;
+  const mod = multi + (has('shield') ? 1 : 0);
+  const R = await heroRoll('nerve', mod, `DEFEND vs ${f.def.name.toUpperCase()}`, 'safe');
+  if (R.r <= 2) { clog(`${f.def.name} gets you!`, 'bad'); hurt(dmgOn(f, R.r), f); }
+  else clog(`You dodge ${foeName(f)}.`);
+}
+
+async function act(a) {
+  const cb = G.cb;
+  if (!cb || G.busy || G.dlg) return;
+  const f = cb.foes[cb.t];
+  if (!f) return;
+  const multi = cb.foes.filter(alive).length > 1 ? -1 : 0;
+  setBusy(true);
+  let res;
+  try { res = await ACTS[a](f, multi); }
+  catch (err) { console.error(err); res = false; }
+  if (res === false || G.mode !== 'combat') { setBusy(false); return; }
+  if (S.hearts <= 0) { setBusy(false); return faint(); }
+  // other foes get their swing — you're forced to defend
+  if (res !== 'noOthers') for (const o of cb.foes) { if (o === f || !alive(o)) continue; await forcedDefend(o, multi); if (S.hearts <= 0) break; }
+  if (S.hearts <= 0) { setBusy(false); return faint(); }
+  await reap();
+  if (!cb.foes.length) return victory();
+  newRound();
+  setBusy(false);
+}
+async function reap() {
+  const cb = G.cb;
+  for (const f of cb.foes.slice()) {
+    if (f.hp > 0) continue;
+    if (f.reform) {
+      f.reform = false; f.def = ENEMIES.skull; f.hp = 1; f.max = 1; f.e.kind = 'skull';
+      clog('The skeleton collapses… but its skull rolls up, snapping!', 'bad');
+      continue;
+    }
+    cb.foes.splice(cb.foes.indexOf(f), 1);
+    G.ents.splice(G.ents.indexOf(f.e), 1);
+    if (G.room.dg && !f.e.tmp) S.dead[f.e.id] = 1;
+    if (f.def.boss) { clog(`<b>${f.def.name} disintegrates!</b>`, 'gold'); const [sx, sy] = G.room.shardAt; setMod(sx, sy, 'X'); continue; }
+    clog(`${f.def.name} is defeated!`, 'good');
+    if (f.def.loot) { const L = rollLoot(false); if (L.got) clog('It dropped something: ' + L.text, 'good'); }
+  }
+  if (cb.t >= cb.foes.length) cb.t = 0;
+  updateSheet();
+}
+async function victory() {
+  SFX.win();
+  clog('<b>VICTORY!</b>', 'gold');
+  await sleep(900);
+  endCombat();
+  checkSolve();
+  save();
+}
+function endCombat() {
+  G.mode = 'play'; G.cb = null; G.busy = false;
+  $('#battle').hidden = true; $('#field').hidden = false;
+  updateSheet();
+}
+
+const ACTS = {
+  async attack(f, m) {
+    if (f.def.boss && f.move === 'guard') { clog(`${f.def.name} is guarding — you can’t hurt it this round, but you’re safe too.`); return true; }
+    let mod = rollMods(f, m) + (f.exposed ? 1 : 0) - (f.armor || 0);
+    const R = await heroRoll('power', mod, 'ATTACK');
+    let r = R.r;
+    if (f.elec) { r = 1; clog('ZZZAP! It’s electrified — your strike counts as a 1!', 'bad'); }
+    if (f.sub) { clog('It’s underwater — you can’t reach it.'); return true; }
+    if (r >= 3) damage(f, 1 + (r === 4 ? Math.max(0, R.fours - 1) : 0), { crush: R.fours >= 2 });
+    else clog('You miss!');
+    applyDanger(f, r, 'melee');
+    return true;
+  },
+  async defend(f, m) {
+    const mod = rollMods(f, m) + (has('shield') ? 1 : 0);
+    const R = await heroRoll('nerve', mod, 'DEFEND', 'safe');
+    if (f.def.boss && f.move === 'guard') { clog('Nothing to defend against — it’s holding back.'); return true; }
+    if (R.r >= 3) {
+      if (f.def.boss === 'king' && f.move === 'special' && has('shield')) {
+        f.stunTo = G.cb.round + 2; f.hp = Math.max(0, f.hp - 1); SFX.magic();
+        clog('Your Mirror Shield flares — the shadow orb rebounds into the King! <b>1 damage, and he’s STUNNED</b> for two rounds!', 'gold');
+      } else if (R.r === 4 && !f.def.boss) {
+        f.stunTo = G.cb.round + 1;
+        clog(`A perfect parry! ${foeName(f)} staggers — <b>STUNNED</b> next round.`, 'gold');
+      } else clog('You block the attack.');
+    } else { clog('You fail to block!', 'bad'); hurt(dmgOn(f, R.r), f); }
+    return true;
+  },
+  async inspect(f, m) {
+    const R = await heroRoll('wits', rollMods(f, m) + (S.hero.kin === 'sprig' ? 0 : 0), 'INSPECT');
+    if (R.r >= 3) {
+      f.exposed = true;
+      clog(`<b>Weakness:</b> ${f.def.weak}`, 'gold');
+    } else clog('You can’t make out a weakness.');
+    applyDanger(f, R.r, 'melee');
+    return true;
+  },
+  async escape(f, m) {
+    if (G.cb.boss) { clog('The door is sealed — there’s no escape!'); return false; }
+    const R = await heroRoll('nerve', m, 'ESCAPE');
+    if (R.r >= 3) {
+      if (R.r === 3) applyDanger(f, 3, 'melee');
+      if (S.hearts <= 0) return true;
+      clog('You get away!', 'good');
+      await sleep(500); fleeTo(); return true;
+    }
+    clog('You can’t break away!', 'bad'); applyDanger(f, R.r, 'melee');
+    return true;
+  },
+  async talk(f, m) {
+    const R = await heroRoll('wits', rollMods(f, m), 'TALK');
+    clog(`Monsters can’t be reasoned with — but you can distract them.`);
+    if (R.r === 4 && !f.def.boss) { f.stunTo = G.cb.round + 1; clog(`You shout a wild taunt. ${foeName(f)} is baffled — <b>STUNNED</b> next round!`, 'gold'); }
+    else if (R.r === 4) clog(`${f.def.name} ignores your words entirely.`);
+    else clog('It doesn’t care what you have to say.');
+    applyDanger(f, R.r, 'melee');
+    return true;
+  },
+  async other(f, m) {
+    const k = S.hero.kin;
+    const opts = [];
+    const no = S.energy < 1;
+    if (k === 'sylph') opts.push({ label:'Focus: +1D next roll (1 energy)', v:'fae', disabled:no || S.fae });
+    if (k === 'stone') opts.push({ label:'Stone Skin (1 energy)', v:'stone', disabled:no || S.stone });
+    if (k === 'glitch') opts.push({ label:'Glitch (1 energy)', v:'glitch', disabled:no || S.glitch });
+    if (k === 'skyling') opts.push({ label:'Fly away (1 energy)', v:'flee', disabled:no || G.cb.boss });
+    if (k === 'sprig') opts.push({ label:'Vanish (1 energy)', v:'flee', disabled:no || G.cb.boss });
+    if (k === 'tide') opts.push({ label:'Riptide: WITS, stuns (1 energy)', v:'rip', disabled:no });
+    opts.unshift({ label:'Back', v:null });
+    setBusy(false);
+    const v = await subPrompt(KINS[k].special, opts);
+    setBusy(true);
+    if (!v) return false;
+    S.energy--; updateSheet(); SFX.magic();
+    if (v === 'fae') { S.fae = 1; clog('You focus your mind. <b>+1D</b> on your next roll.', 'gold'); return false; }
+    if (v === 'stone') { S.stone = 1; clog('Your skin turns to stone.', 'gold'); return false; }
+    if (v === 'glitch') { S.glitch = 1; clog('You flicker out of phase…', 'gold'); return false; }
+    if (v === 'flee') { clog(k === 'skyling' ? 'You leap and glide away!' : 'You go perfectly still… and vanish.', 'good'); await sleep(500); fleeTo(); return true; }
+    if (v === 'rip') {
+      const R = await heroRoll('wits', rollMods(f, m), 'RIPTIDE');
+      if (R.r >= 3 && !f.def.boss) { f.stunTo = G.cb.round; clog(`A jet of water knocks ${foeName(f)} flat — <b>STUNNED!</b>`, 'gold'); }
+      else if (R.r >= 3 && f.def.boss === 'wyrm') { f.frozenTo = -1; clog('The wyrm laughs at your little wave.'); }
+      else if (R.r >= 3) clog('It shrugs off the water.');
+      else clog('Your riptide fizzles.');
+      if (R.r <= 2) applyDanger(f, R.r, 'ranged');
+      return true;
+    }
+    return false;
+  },
+  async item(f, m) {
+    const cb = G.cb, opts = [{ label:'Back', v:null }];
+    if (S.snacks) opts.push({ label:`Snack ×${S.snacks}`, v:'snack', ic:icon('snack', 'snack') });
+    if (S.meals) opts.push({ label:`Meal ×${S.meals}`, v:'meal', ic:icon('meal', 'meal') });
+    if (S.bombs) opts.push({ label:`Bomb ×${S.bombs}`, v:'bomb', ic:icon('bomb', 'bomb') });
+    for (const id of new Set(S.inv)) if (ITEMS[id].battle) opts.push({ label:ITEMS[id].name + (id === 'bow' ? ' (1g)' : id === 'cape' || id === 'wand' ? ' (1 en)' : ''), v:id, ic:icon(ITEMS[id].icon, ITEMS[id].pal), disabled:(id === 'bow' && S.gems < 1) || ((id === 'cape' || id === 'wand') && S.energy < 1) });
+    setBusy(false);
+    const v = await subPrompt(opts.length > 1 ? 'Use which item?' : 'You have nothing to use in battle.', opts);
+    setBusy(true);
+    if (!v) return false;
+    const eat = async (msg) => { clog(msg, 'good'); SFX.coin(); updateSheet(); await forcedDefend(f, m); return true; };
+    switch (v) {
+      case 'snack': S.snacks--; S.hearts = Math.min(S.maxH, S.hearts + 1); S.energy = Math.min(S.maxE, S.energy + 1); return eat('You wolf down a snack. +1 heart, +1 energy.');
+      case 'meal': S.meals--; S.hearts = Math.min(S.maxH, S.hearts + 3); S.energy = Math.min(S.maxE, S.energy + 3); return eat('You eat a hearty meal mid-fight. +3 hearts, +3 energy.');
+      case 'hpot': S.inv.splice(S.inv.indexOf('hpot'), 1); S.hearts = S.maxH; return eat('You gulp the Heart Potion. All hearts restored!');
+      case 'epot': S.inv.splice(S.inv.indexOf('epot'), 1); S.energy = S.maxE; return eat('You gulp the Energy Potion. All energy restored!');
+      case 'cape': S.energy--; cb.capeTo = cb.round + 1; updateSheet(); SFX.magic(); clog('You swirl the Magic Cape around you — <b>untouchable</b> this round and next!', 'gold'); return true;
+      case 'bomb': {
+        S.bombs--; updateSheet();
+        const R = await heroRoll('power', rollMods(f, m), 'BOMB');
+        if (R.r >= 3) { SFX.boom(); flash(); damage(f, 2, { bomb:true, crush:true }); } else clog('The bomb rolls away and explodes harmlessly.');
+        applyDanger(f, R.r, 'melee'); return true;
+      }
+      case 'bow': {
+        S.gems--; updateSheet();
+        const R = await heroRoll('wits', rollMods(f, m) + (f.exposed ? 1 : 0), 'BOW');
+        if (f.sub) clog('The arrow plunks into the water.');
+        else if (R.r >= 3) damage(f, 1 + (R.r === 4 ? Math.max(0, R.fours - 1) : 0), { crush:R.fours >= 2 });
+        else clog('Your arrow goes wide.');
+        if (R.r <= 2) applyDanger(f, R.r, 'ranged'); return true;
+      }
+      case 'boomer': {
+        const R = await heroRoll('wits', rollMods(f, m), 'BOOMERANG');
+        if (R.r >= 3 && !f.def.boss && !f.sub) { f.stunTo = cb.round; SFX.hit(); clog(`Whack! ${foeName(f)} is <b>STUNNED</b> and can’t hurt you this round.`, 'gold'); }
+        else if (R.r >= 3) clog('It bounces off harmlessly.');
+        else clog('Your boomerang sails past.');
+        if (R.r <= 2) applyDanger(f, R.r, 'ranged'); return true;
+      }
+      case 'wand': {
+        S.energy--; updateSheet();
+        const R = await heroRoll('wits', rollMods(f, m), 'FROST WAND');
+        if (R.r >= 3 && f.def.boss === 'wyrm') { f.frozenTo = cb.round + (R.r === 4 ? 3 : 2); SFX.magic(); clog(`The pool freezes solid around the wyrm! <b>It’s trapped for ${R.r === 4 ? 3 : 2} rounds</b> — strike now!`, 'gold'); }
+        else if (R.r >= 3 && !f.def.boss) { f.stunTo = cb.round; SFX.magic(); clog(`${foeName(f)} is frozen in place — <b>STUNNED!</b>`, 'gold'); }
+        else if (R.r >= 3) clog('The frost bolt fizzles against it.');
+        else clog('Your bolt misses.');
+        if (R.r <= 2) applyDanger(f, R.r, 'ranged'); return true;
+      }
+      case 'hammer': {
+        if (f.def.boss && f.move === 'guard') { clog(`${f.def.name} is guarding — no effect.`); return true; }
+        const R = await heroRoll('power', rollMods(f, m) + (f.exposed ? 1 : 0) - (f.armor || 0), 'HAMMER');
+        let r = R.r; if (f.elec) { r = 1; clog('ZZZAP! Metal hammer, electric jelly — bad idea.', 'bad'); }
+        if (r >= 3) damage(f, (f.def.stone ? 2 : 1) + (r === 4 ? Math.max(0, R.fours - 1) : 0), { stone:true, crush:true });
+        else clog('You swing and miss!');
+        applyDanger(f, r, 'melee'); return true;
+      }
+    }
+    return false;
+  }
+};
+function fleeTo() {
+  const cb = G.cb;
+  for (const f of cb.foes) f.e.calm = 4;
+  endCombat();
+  const e = G.entry;
+  if (!entAt(e.x, e.y)) { S.x = e.x; S.y = e.y; }
+  say('You slip away to safety.');
+}
+async function faint() {
+  SFX.lose();
+  G.mode = 'dialog';
+  await dialog('You blacked out…', '<p>Everything goes dark. You wake up back at the entrance. Your progress is kept — but the monsters have all come back.</p>');
+  $('#battle').hidden = true; $('#field').hidden = false;
+  G.cb = null; G.mode = 'play'; G.busy = false;
+  const dg = G.room.dg;
+  if (dg) for (const k in S.dead) { const rid = k.split(':')[0]; if (ROOMS[rid].dg === dg && !ROOMS[rid].boss) delete S.dead[k]; }
+  S.hearts = S.maxH; S.energy = Math.max(S.energy, Math.min(S.maxE, 3)); S.fae = S.stone = S.glitch = 0;
+  const c = S.check;
+  loadRoom(c.room, c.x, c.y);
+  say('You pick yourself up. Try again!', 'az');
+}
+async function ending() {
+  G.mode = 'dialog';
+  await dialog('The Prism Restored!', `<p>The third shard leaps from the Hollow King’s crumbling crown. The three shards spin together and fuse into the <b>Azure Prism</b>.</p><p>Light floods the Keep, spills over the walls and rolls across Wrenwick, the woods, the lake and the slopes. Somewhere, a duck quacks approvingly.</p><p><b>${S.hero.name}</b>, the land of Azurmere is saved.</p><p><em>Thank you for playing Shards of Azurmere — a game by Marcus Draper for www.deskatur.com.</em></p>`, [{ label:'Keep exploring', v:1 }]);
+  G.mode = 'play';
+  S.flags.won = 1; save();
+}
+
+/* ============================================================
+   CHARACTER CREATION
+   ============================================================ */
+const C = { name:pick(NAMES), kin:'sylph', item:'lantern', hair:COLORS[0][1], clothes:COLORS[5][1], arr:{ power:3, nerve:2, wits:1 } };
+function finalAttrs() {
+  const m = KINS[C.kin].mods || {};
+  const o = {};
+  for (const [a] of ATTRS) o[a] = Math.max(0, C.arr[a] + (m[a] || 0));
+  return o;
+}
+function buildCreate() {
+  $('#cName').value = C.name;
+  $('#cKin').innerHTML = Object.entries(KINS).map(([k, v]) => `<button class="chip" data-k="${k}" aria-pressed="${C.kin === k}"><b>${v.name.toUpperCase()}</b>${v.blurb}<br><small>${v.special}</small></button>`).join('');
+  $('#cItem').innerHTML = Object.entries(ITEMS).filter(([, v]) => v.start).map(([k, v]) => `<button class="chip" data-i="${k}" aria-pressed="${C.item === k}"><b>${v.name.toUpperCase()}</b><small>${v.desc}</small></button>`).join('');
+  const fa = finalAttrs();
+  $('#cAttrs').innerHTML = ATTRS.map(([a, n, d]) => `<div class="attr"><b>${n}</b><span>${d}</span><div class="pick">${[3, 2, 1].map(v => `<button data-a="${a}" data-v="${v}" aria-pressed="${C.arr[a] === v}" aria-label="${n} ${v}">${v}</button>`).join('')}<span class="val" title="with kin modifier">${fa[a]}</span></div></div>`).join('');
+  const sw = (id, key) => { $(id).innerHTML = COLORS.map(([n, h]) => `<button class="sw" title="${n}" aria-label="${n}" style="background:${h}" data-c="${h}" aria-pressed="${C[key] === h}"></button>`).join(''); };
+  sw('#cHair', 'hair'); sw('#cClothes', 'clothes');
+  document.querySelectorAll('#cKin .chip').forEach(b => b.onclick = () => { C.kin = b.dataset.k; buildCreate(); });
+  document.querySelectorAll('#cItem .chip').forEach(b => b.onclick = () => { C.item = b.dataset.i; buildCreate(); });
+  document.querySelectorAll('#cAttrs button').forEach(b => b.onclick = () => {
+    const a = b.dataset.a, v = +b.dataset.v, old = C.arr[a];
+    const other = Object.keys(C.arr).find(k => C.arr[k] === v);
+    C.arr[other] = old; C.arr[a] = v; buildCreate();
+  });
+  document.querySelectorAll('#cHair .sw').forEach(b => b.onclick = () => { C.hair = b.dataset.c; buildCreate(); });
+  document.querySelectorAll('#cClothes .sw').forEach(b => b.onclick = () => { C.clothes = b.dataset.c; buildCreate(); });
+  drawPreview();
+}
+function drawPreview() {
+  const c = $('#pv'), x = c.getContext('2d');
+  x.fillStyle = '#6abe50'; x.fillRect(0, 0, 16, 16);
+  drawSprite(x, 'hero', heroPal({ kin:C.kin, hair:C.hair, clothes:C.clothes }), 0, 0, 2);
+  const fa = finalAttrs();
+  $('#pvName').textContent = (C.name || 'Hero').toUpperCase();
+  $('#pvLine').innerHTML = `${KINS[C.kin].name} · ${KINS[C.kin].weapon}<br>${ITEMS[C.item].name}<br>Power ${fa.power} · Nerve ${fa.nerve} · Wits ${fa.wits}`;
+}
+$('#cName').addEventListener('input', e => { C.name = e.target.value.trim(); drawPreview(); });
+$('#cRollName').onclick = () => { C.name = pick(NAMES); $('#cName').value = C.name; drawPreview(); };
+$('#cBack').onclick = () => show('title');
+$('#cStart').onclick = async () => {
+  const fa = finalAttrs();
+  const hero = { name:(C.name || pick(NAMES)).slice(0, 12), kin:C.kin, item:C.item, hair:C.hair, clothes:C.clothes, ...fa };
+  S = newState(hero);
+  show('game');
+  $('#log').innerHTML = '';
+  loadRoom('town', 7, 6);
+  say(`Welcome to Wrenwick, ${hero.name}.`, 'gold');
+  say('Talk to Elder Maple (top-left) to learn what’s going on.');
+  await dialog('Shards of Azurmere', `<p>The <b>Azure Prism</b> that kept Azurmere bright has been shattered by the <b>Hollow King</b>. He hid three <b>Prism Shards</b> in three monster lairs and sealed himself inside the Azure Keep.</p><p>Gather the shards, break the barrier, and bring back the light.</p><p><em>Walk into people, chests and doors to use them. When you act under pressure you roll a pool of four-sided dice — see <b>Rules</b> for how it works.</em></p>`, [{ label:'Let’s go!', v:1 }]);
+};
+
+/* ============================================================
+   SCREENS, RULES, INPUT
+   ============================================================ */
+function show(which) {
+  $('#scrTitle').hidden = which !== 'title';
+  $('#scrCreate').hidden = which !== 'create';
+  $('#scrGame').hidden = which !== 'game';
+  G.mode = which === 'game' ? 'play' : which;
+  if (which === 'title') { $('#bCont').hidden = !loadSave(); drawTitleArt(); }
+  if (which === 'create') buildCreate();
+}
+function drawTitleArt() {
+  const c = $('#titleArt'), x = c.getContext('2d');
+  x.clearRect(0, 0, 96, 32);
+  drawSprite(x, 'hero', heroPal({ kin:'sylph', hair:'#f2d03a', clothes:'#3aa04a' }), 8, 8, 2);
+  drawSprite(x, 'shard', SPAL.shard, 40, 8, 2);
+  drawSprite(x, 'slime', SPAL.slime, 72, 8, 2);
+}
+function rulesHTML() {
+  return `
+  <p><b>Action rolls.</b> When you do something risky, roll a number of four-sided dice equal to the attribute that fits — <b>POWER</b> (attack, smash, hurl), <b>NERVE</b> (defend, dodge, escape) or <b>WITS</b> (inspect, shoot, talk). Only the <b>highest die</b> counts:</p>
+  <ul><li><b>1–2</b> — you fail. In a fight you lose a heart.</li><li><b>3</b> — you succeed, but in a fight it still costs you a heart (unless you were defending).</li><li><b>4</b> — clean success. Every extra 4 is an extra success: an extra point of damage, or a crushing blow that finishes off a skeleton.</li></ul>
+  <p>Got 0 dice or fewer? Roll 2 and keep the <em>lowest</em>.</p>
+  <p><b>Battle.</b> Walk into a monster to fight. Each round, read what the monsters are up to, then choose <b>ATTACK · DEFEND · USE ITEM · INSPECT · ESCAPE · TALK · OTHER</b>. One roll decides what happens to both of you. If several monsters gang up, you get –1D and must also defend against the others. A <b>STUNNED</b> monster can’t hurt you. Perfect defences (a 4) and taunts can stun.</p>
+  <p><b>Bosses</b> are immune to normal attacks. INSPECT them to learn the trick. Each round they pick a move: a special attack (costs 2 hearts), an attack, a displacement (–1D) or a defence (nobody gets hurt). Beat a boss for a Prism Shard, +1 max heart and a full heal.</p>
+  <p><b>Hearts & energy.</b> Snacks restore 1 heart and 1 energy, meals restore 3 and 3. If you hit 0 hearts you black out and wake at the entrance. You keep your progress, but the monsters come back.</p>
+  <p><b>Items.</b> Keys open any lock once. Big Keys open boss doors. Bombs blow cracked walls. Your pouch holds 4 items (8 with a Large Pouch); food, gems, keys and bombs don’t take a slot. Each Prism Shard lets you <b>reroll</b> a bad roll once, recharged when you rest in the village.</p>
+  <p><b>Exploring.</b> Walk into things to use them. <b>INSPECT</b> a room (a WITS roll) to find hidden passages, cracks and pit traps. Push blocks onto plates, light braziers with a lantern, and talk to everyone — though they only ever want to talk about one thing.</p>
+  <p style="color:var(--muted);font-size:17px">Shards of Azurmere is an original game by Marcus Draper for <a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a>. Its dice rules are inspired by the tabletop RPG <em>Heroes of Cerulea</em> by Lucas Falk (Bläckfisk Publishing). All names, maps, art and story here are original.</p>`;
+}
+$('#bNew').onclick = async () => {
+  if (loadSave()) { const v = await dialog('New Adventure', '<p>Start a new hero? Your saved adventure will be erased.</p>', [{ label:'Cancel', v:false }, { label:'Start fresh', v:true }]); if (!v) return; clearSave(); }
+  C.name = pick(NAMES); show('create');
+};
+$('#bCont').onclick = () => {
+  const s = loadSave(); if (!s) return;
+  S = s; show('game'); $('#log').innerHTML = '';
+  loadRoom(S.room, S.x, S.y); say(`Welcome back, ${S.hero.name}.`, 'gold');
+};
+$('#bHelp1').onclick = $('#bHelp2').onclick = () => dialog('How to Play', rulesHTML());
+$('#bMenu').onclick = async () => {
+  if (G.dlg) return;
+  const v = await dialog('Menu', '<p>Your adventure saves automatically whenever you change rooms.</p>', [{ label:'Title screen', v:'title' }, { label:'Back to game', v:null }]);
+  if (v === 'title') { save(); if (G.mode === 'combat') endCombat(); show('title'); }
+};
+$('#bSound').onclick = () => { soundOn = !soundOn; $('#bSound').textContent = soundOn ? '♪ On' : '♪ Off'; $('#bSound').setAttribute('aria-pressed', soundOn); };
+$('#bInspect').onclick = fieldInspect;
+$('#bSpecial').onclick = fieldSpecial;
+$('#bAct').onclick = () => tryMove(S.face);
+document.querySelectorAll('#acts .btn').forEach(b => b.onclick = () => act(b.dataset.a));
+
+let holdT = null;
+document.querySelectorAll('.pad [data-d]').forEach(b => {
+  const d = b.dataset.d;
+  const start = e => { e.preventDefault(); tryMove(d); clearInterval(holdT); holdT = setInterval(() => tryMove(d), 170); };
+  const stop = () => clearInterval(holdT);
+  b.addEventListener('pointerdown', start); b.addEventListener('pointerup', stop); b.addEventListener('pointerleave', stop); b.addEventListener('pointercancel', stop);
+});
+const KEYMAP = { ArrowUp:'n', ArrowDown:'s', ArrowLeft:'w', ArrowRight:'e', w:'n', s:'s', a:'w', d:'e', W:'n', S:'s', A:'w', D:'e' };
+let lastKey = 0;
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (!$('#modal').hidden) {
+    if (e.key === 'Escape') { const btns = $('#dlgR').querySelectorAll('button'); if (btns.length) btns[0].click(); }
+    return;
+  }
+  if ($('#scrGame').hidden) return;
+  if (G.mode === 'combat') {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 7) { const b = document.querySelectorAll('#acts .btn')[n - 1]; if (!b.disabled) b.click(); e.preventDefault(); }
+    return;
+  }
+  const d = KEYMAP[e.key];
+  if (d) { e.preventDefault(); const now = performance.now(); if (now - lastKey < 110) return; lastKey = now; tryMove(d); return; }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tryMove(S.face); }
+  if (e.key === 'i' || e.key === 'I') fieldInspect();
+  if (e.key === 'k' || e.key === 'K') fieldSpecial();
+});
+
+show('title');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
