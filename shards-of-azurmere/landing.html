@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shards of Azurmere</title>
+<meta name="author" content="Marcus Draper">
+<meta name="description" content="Shards of Azurmere: a free 8-bit dungeon-crawl adventure for your browser, adapted from the tabletop RPG Heroes of Cerulea by Lucas Falk. Web version by Marcus Draper.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: an arcade cabinet's attract screen. A split hero (title left, live screen right),
+   then a strip of rooms, the dice rules beside a real battle, the hero sheet, and the credits. */
+:root {
+  color-scheme: dark;
+  --night: #120f1f;
+  --panel: #1d1934;
+  --panel2: #262046;
+  --edge: #4a4374;
+  --ink: #f4ecd8;
+  --muted: #a49cc4;
+  --gold: #f2c14e;
+  --azure: #3ab0f0;
+  --deep: #0b3a66;
+  --bad: #ff6a5a;
+  --good: #6ad06a;
+  --pix: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  --body: "VT323", ui-monospace, "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--night);
+  background-image: radial-gradient(ellipse 90% 60% at 70% -10%, #2a2258 0, transparent 65%);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 22px;
+  line-height: 1.3;
+}
+a { color: var(--azure); }
+img.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 100%; height: auto; max-width: 100%; }
+.wrap { max-width: 1160px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+section { padding-block: 56px; }
+h2 { font-family: var(--pix); font-size: clamp(15px, 2.4vw, 20px); color: var(--gold); margin: 0 0 10px; line-height: 1.5; text-wrap: balance; letter-spacing: 1px; }
+.eyebrow { font-family: var(--pix); font-size: 10px; letter-spacing: 2px; color: var(--azure); margin: 0 0 14px; text-transform: uppercase; }
+.lede { color: var(--muted); max-width: 34em; margin: 0 0 28px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--pix); font-size: 13px; letter-spacing: 1px; text-decoration: none; text-transform: uppercase;
+  color: var(--gold); background: #3a2f7a; border: 4px solid var(--gold);
+  padding: 16px 22px; box-shadow: 5px 5px 0 #0a0814;
+}
+.btn:hover { background: #4a3c94; }
+.btn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 #0a0814; }
+.btn:focus-visible { outline: 3px solid var(--azure); outline-offset: 4px; }
+.btn.ghost { color: var(--ink); background: var(--panel2); border-color: var(--edge); }
+.frame { border: 4px solid #0c0a16; box-shadow: 0 0 0 4px var(--edge), 8px 8px 0 4px #0a0814; background: #000; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 40px 64px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 48px; align-items: center; }
+.logo { font-family: var(--pix); margin: 0 0 22px; line-height: 1.1; }
+.logo .a { display: block; font-size: clamp(18px, 3vw, 28px); letter-spacing: 3px; }
+.logo .b { display: block; font-size: clamp(30px, 5.4vw, 58px); color: var(--azure); letter-spacing: 3px; margin-top: 10px; text-shadow: 5px 5px 0 var(--deep), 0 0 26px rgba(58,176,240,.35); }
+.tag { font-size: 25px; max-width: 24em; margin: 0 0 30px; }
+.cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 24px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 19px; }
+.facts li::before { content: "▶ "; color: var(--azure); font-size: 14px; }
+.screen { position: relative; }
+.screen .slides { position: relative; aspect-ratio: 15 / 11; }
+.screen .slides img { position: absolute; inset: 0; opacity: 0; transition: opacity .7s steps(6); }
+.screen .slides img.on { opacity: 1; }
+.screen figcaption { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; font-family: var(--pix); font-size: 10px; color: var(--muted); line-height: 1.6; }
+.screen figcaption b { color: var(--gold); font-weight: normal; }
+.dots { display: flex; gap: 6px; }
+.dots button { width: 12px; height: 12px; padding: 0; border: 2px solid var(--edge); background: transparent; cursor: pointer; }
+.dots button[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); }
+.dots button:focus-visible { outline: 2px solid var(--azure); outline-offset: 2px; }
+
+/* ---------- rooms ---------- */
+.rooms { background: var(--panel); border-block: 4px solid var(--edge); }
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px 22px; margin-top: 30px; }
+.grid figure { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.grid figure .frame { box-shadow: 0 0 0 3px var(--edge), 5px 5px 0 3px #0a0814; }
+.grid figcaption { font-size: 19px; color: var(--muted); line-height: 1.15; }
+.grid figcaption b { display: block; font-family: var(--pix); font-size: 9px; color: var(--ink); font-weight: normal; margin-bottom: 6px; line-height: 1.5; }
+
+/* ---------- dice ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 48px; align-items: center; }
+.rolls { display: grid; gap: 10px; margin: 0 0 22px; padding: 0; list-style: none; }
+.rolls li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center; background: var(--panel); border: 3px solid var(--edge); padding: 10px 14px; }
+.rolls .n { font-family: var(--pix); font-size: 15px; text-align: center; }
+.rolls .f { color: var(--bad); } .rolls .m { color: var(--gold); } .rolls .g { color: var(--good); }
+.actions { font-family: var(--pix); font-size: 9px; line-height: 2.2; color: var(--muted); letter-spacing: 1px; }
+.actions span { color: var(--azure); }
+.shot img { border: 4px solid #0c0a16; box-shadow: 0 0 0 4px var(--edge), 8px 8px 0 4px #0a0814; }
+
+/* ---------- sheet ---------- */
+.sheetsec { background: var(--panel); border-block: 4px solid var(--edge); }
+.sheetsec .split { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+.sheetsec .shot { max-width: 380px; justify-self: center; }
+.kins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.kins li { background: var(--night); border: 3px solid var(--edge); padding: 10px 12px; font-size: 18px; color: var(--muted); line-height: 1.15; }
+.kins b { display: block; font-family: var(--pix); font-size: 9px; color: var(--ink); font-weight: normal; margin-bottom: 6px; }
+
+/* ---------- credits ---------- */
+.credits .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 30px; }
+.card { background: var(--panel); border: 4px solid var(--edge); box-shadow: 6px 6px 0 #0a0814; padding: 24px; }
+.card.web { border-color: var(--gold); }
+.card h3 { font-family: var(--pix); font-size: 10px; letter-spacing: 2px; color: var(--azure); margin: 0 0 14px; }
+.card .work { font-family: var(--pix); font-size: 15px; color: var(--ink); margin: 0 0 18px; line-height: 1.5; }
+.card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 18px; margin: 0 0 18px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; min-width: 0; }
+.card .name { color: var(--gold); }
+.card p { margin: 0; color: var(--muted); font-size: 19px; }
+
+.final { text-align: center; padding-block: 40px 64px; }
+.final h2 { margin-bottom: 22px; }
+footer { border-top: 2px solid var(--edge); padding-block: 14px 18px; }
+footer p { margin: 0; text-align: center; font-family: var(--pix); font-size: 9px; line-height: 2; color: var(--muted); }
+footer b { color: var(--ink); font-weight: normal; }
+footer a { color: var(--gold); }
+
+@media (max-width: 900px) {
+  .hero .wrap, .split, .sheetsec .split { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .credits .cards { grid-template-columns: minmax(0, 1fr); }
+  .sheetsec .split > :first-child { max-width: 360px; }
+}
+@media (max-width: 520px) {
+  body { font-size: 20px; }
+  section { padding-block: 40px; }
+  .kins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { gap: 20px 14px; }
+  .btn { font-size: 11px; padding: 14px 16px; }
+  .screen figcaption { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .screen .slides img { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">An 8-bit dungeon-crawl adventure</p>
+      <h1 class="logo"><span class="a">SHARDS OF</span><span class="b">AZURMERE</span></h1>
+      <p class="tag">Roll four-sided dice, explore four dungeons, outwit their bosses and gather the three Prism Shards before the Hollow King swallows the light for good.</p>
+      <div class="cta">
+        <a class="btn" href="index.html">▶ Play now</a>
+        <a class="btn ghost" href="#credits">Credits</a>
+      </div>
+      <ul class="facts">
+        <li>Free</li><li>Plays in your browser</li><li>Keyboard or touch</li><li>Saves automatically</li>
+      </ul>
+    </div>
+    <figure class="screen" style="margin:0">
+      <div class="slides frame" id="slides">
+        <img class="px on" src="img/village.png" alt="Wrenwick Village: cottages, villagers, a duck and a signpost on the village green" data-cap="Wrenwick Village" data-sub="Overworld">
+        <img class="px" src="img/pillar-hall.png" alt="Pillar Hall: three skeletons lurk among stone pillars" data-cap="Pillar Hall" data-sub="Hollow Barrow">
+        <img class="px" src="img/frozen-reach.png" alt="Frozen Reach: an ice bridge frozen across deep water toward a chest and a stair" data-cap="Frozen Reach" data-sub="Mere Spire">
+        <img class="px" src="img/ember-grotto.png" alt="Rubble Hall: boulders and rivers of lava in the Ember Grotto" data-cap="Rubble Hall" data-sub="Ember Grotto">
+        <img class="px" src="img/boss-warden.png" alt="The Bone Warden boss looms in its crypt, ringed by pits" data-cap="The Bone Warden" data-sub="Boss of the Hollow Barrow">
+      </div>
+      <figcaption><span><b id="cap">Wrenwick Village</b> · <span id="sub">Overworld</span></span><span class="dots" id="dots" aria-label="Choose screenshot"></span></figcaption>
+    </figure>
+  </div>
+</header>
+
+<section class="rooms" aria-labelledby="h-rooms">
+  <div class="wrap">
+    <p class="eyebrow">The world</p>
+    <h2 id="h-rooms">One village. Four dungeons. Dozens of rooms.</h2>
+    <p class="lede">Start in Wrenwick, then pick your way through a mossy crypt, a flooded tower and a cavern of lava before you can break into the Azure Keep. Every dungeon has its own tool to find, its own puzzles and its own boss.</p>
+    <div class="grid">
+      <figure><div class="frame"><img class="px" src="img/village.png" alt="Wrenwick Village" loading="lazy"></div><figcaption><b>WRENWICK VILLAGE</b>The shop, a dice-gambler and an elder who knows what’s gone wrong.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/woods.png" alt="Gloomhollow Woods with a pixie fountain and the Barrow entrance" loading="lazy"></div><figcaption><b>GLOOMHOLLOW WOODS</b>A pixie fountain, a mushroom picker and the way into the Hollow Barrow.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/lake.png" alt="Mirrorwater Shore with a plank bridge to the Mere Spire" loading="lazy"></div><figcaption><b>MIRRORWATER SHORE</b>A plank bridge out to the Mere Spire, with jellyfish on the beach.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/pillar-hall.png" alt="Pillar Hall in the Hollow Barrow" loading="lazy"></div><figcaption><b>HOLLOW BARROW</b>Skeletons hide behind the pillars and ambush you when you come close.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/frozen-reach.png" alt="Frozen Reach in the Mere Spire" loading="lazy"></div><figcaption><b>MERE SPIRE</b>Freeze ice bridges with the Frost Wand to reach what’s across the water.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/ember-grotto.png" alt="Rubble Hall in the Ember Grotto" loading="lazy"></div><figcaption><b>EMBER GROTTO</b>Smash boulders and bomb cracked walls. Don’t step in the lava.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/azure-keep.png" alt="The Last Landing in the Azure Keep" loading="lazy"></div><figcaption><b>AZURE KEEP</b>Sealed behind a barrier until you carry all three Prism Shards.</figcaption></figure>
+      <figure><div class="frame"><img class="px" src="img/boss-warden.png" alt="The Bone Warden boss" loading="lazy"></div><figcaption><b>THE BONE WARDEN</b>Bosses shrug off normal hits. Inspect them to learn the trick.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-dice">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow">How it plays</p>
+      <h2 id="h-dice">Roll a handful of d4s. Keep the highest.</h2>
+      <p class="lede">When you act under pressure you roll one four-sided die for each point in the attribute that fits, Power, Nerve or Wits, and only your best die counts. One roll decides what happens to you and the monster.</p>
+      <ul class="rolls">
+        <li><span class="n f">1–2</span><span>You fail. In a fight, you lose a heart.</span></li>
+        <li><span class="n m">3</span><span>You succeed, but it costs you a heart (unless you were defending).</span></li>
+        <li><span class="n g">4</span><span>A clean success. Every extra 4 is an extra hit.</span></li>
+      </ul>
+      <p class="actions"><span>▶</span> ATTACK <span>▶</span> DEFEND <span>▶</span> USE ITEM <span>▶</span> INSPECT <span>▶</span> ESCAPE <span>▶</span> TALK <span>▶</span> OTHER</p>
+    </div>
+    <figure class="shot" style="margin:0"><img class="px" src="img/battle.png" alt="A battle against the Bone Warden: an Inspect roll of 4 and 2 keeps the lowest and fails, and the seven action buttons wait below" loading="lazy"></figure>
+  </div>
+</section>
+
+<section class="sheetsec" aria-labelledby="h-sheet">
+  <div class="wrap split">
+    <figure class="shot" style="margin:0"><img class="px" src="img/hero-sheet.png" alt="The hero sheet: attribute triangle, hearts, energy, inventory pouch, food, gems, keys, bombs and shards" loading="lazy"></figure>
+    <div>
+      <p class="eyebrow">Your hero</p>
+      <h2 id="h-sheet">Fill in your hero sheet</h2>
+      <p class="lede">Choose a kin, split 3, 2 and 1 between your attributes, pick a starting item (lantern, bow, boomerang or magic cape) and your colours. Every kin plays differently.</p>
+      <ul class="kins">
+        <li><b>SYLPH</b>Focus for an extra die.</li>
+        <li><b>SKYLING</b>Glide over pits and lava.</li>
+        <li><b>STONEBORN</b>Shrug off a lost heart.</li>
+        <li><b>TIDEKIN</b>Swim deep water.</li>
+        <li><b>SPRIGLING</b>Vanish out of a fight.</li>
+        <li><b>GLITCHLING</b>Reroll a bad die.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="credits" id="credits" aria-labelledby="h-credits">
+  <div class="wrap">
+    <p class="eyebrow">Credits</p>
+    <h2 id="h-credits">Who made this</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>ORIGINAL TABLETOP GAME</h3>
+        <p class="work">Heroes of Cerulea</p>
+        <dl>
+          <dt>Writing &amp; game design</dt><dd class="name">Lucas Falk</dd>
+          <dt>Illustrations</dt><dd>Ronja Melin, Caz Wolf, Lucas Falk</dd>
+          <dt>Editing</dt><dd>Alf Peter Malmberg, Walton Wood</dd>
+          <dt>Publisher</dt><dd>Bläckfisk Publishing · <a href="https://blackfiskpublishing.com" target="_blank" rel="noopener">blackfiskpublishing.com</a></dd>
+        </dl>
+        <p>The dice rules, actions, kin and items in this game are adapted from Heroes of Cerulea, a tabletop role-playing game. Pick up the original to play it around a table with friends.</p>
+      </article>
+      <article class="card web">
+        <h3>WEB VERSION</h3>
+        <p class="work">Shards of Azurmere</p>
+        <dl>
+          <dt>Created by</dt><dd class="name">Marcus Draper</dd>
+          <dt>Website</dt><dd><a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a></dd>
+        </dl>
+        <p>A single-player browser adaptation with its own world, names, maps, story and pixel art.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2>The Prism won’t fix itself.</h2>
+    <a class="btn" href="index.html">▶ Start your adventure</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>SHARDS OF AZURMERE · Web version by <b>Marcus Draper</b> · <a href="https://www.deskatur.com" target="_blank" rel="noopener">www.deskatur.com</a><br>Based on Heroes of Cerulea by <b>Lucas Falk</b> · Bläckfisk Publishing</p>
+  </div>
+</footer>
+
+<script>
+// Attract-mode slideshow: cycles the hero screen; the dots pick a slide and pause the cycle.
+(() => {
+  const imgs = [...document.querySelectorAll('#slides img')];
+  const dots = document.getElementById('dots');
+  const cap = document.getElementById('cap'), sub = document.getElementById('sub');
+  let i = 0, timer = null;
+  const showSlide = n => {
+    i = (n + imgs.length) % imgs.length;
+    imgs.forEach((im, k) => im.classList.toggle('on', k === i));
+    [...dots.children].forEach((d, k) => d.setAttribute('aria-pressed', k === i));
+    cap.textContent = imgs[i].dataset.cap; sub.textContent = imgs[i].dataset.sub;
+  };
+  imgs.forEach((im, k) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('aria-label', im.dataset.cap); b.setAttribute('aria-pressed', k === 0);
+    b.onclick = () => { clearInterval(timer); showSlide(k); };
+    dots.appendChild(b);
+  });
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) timer = setInterval(() => showSlide(i + 1), 3200);
+})();
+</script>
+</body>
+</html>
