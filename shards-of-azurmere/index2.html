@@ -513,6 +513,335 @@ function heroPal(h) {
   return { H: h.hair, S: skin, K, C: h.clothes, c: shade(h.clothes, .7), B: '#3a2416' };
 }
 
+/* ============================================================
+   16×16 ART — outlined, shaded sprites built from pixel buffers.
+   Characters come from a parts-based renderer so arms and legs
+   can swing in every direction; everything else is hand-drawn.
+   ============================================================ */
+const OUTLINE = '#1a1424';
+const AP = {
+  o:OUTLINE, k:'#2a2236', w:'#ffffff', W:'#e8e0d0', g:'#c4c4d0', G:'#8a8a9a', q:'#55556a',
+  r:'#e8404a', R:'#9a2030', y:'#f2d03a', Y:'#c8922a', b:'#a8642a', B:'#5a3214', n:'#e8c08a',
+  l:'#7ad06a', L:'#3a9a3e', D:'#1f5a26', c:'#8ae8f4', C:'#3a8ad8', d:'#1a4a90', p:'#f29ad8',
+  P:'#8a4ab8', v:'#4a2a6a', e:'#f08a2a', E:'#b04a1a', s:'#a8b0ac', S:'#76807c', T:'#4e5854', m:'#ffb0b8'
+};
+function newBuf(w = 16, h = 16) { return { w, h, p:new Array(w * h).fill(null) }; }
+function bset(B, x, y, c) { if (c && x >= 0 && y >= 0 && x < B.w && y < B.h) B.p[y * B.w + x] = c; }
+function bget(B, x, y) { return x >= 0 && y >= 0 && x < B.w && y < B.h ? B.p[y * B.w + x] : null; }
+function brect(B, x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) bset(B, x + i, y + j, c); }
+/* rows of palette letters; mirror = rows hold the left half of a symmetric sprite */
+function fromRows(rows, pal = {}, mirror = false) {
+  const full = mirror ? rows.map(r => r + [...r].reverse().join('')) : rows;
+  const B = newBuf(full[0].length, full.length);
+  full.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') bset(B, x, y, pal[ch] || AP[ch]); }));
+  return B;
+}
+function outlineBuf(B, col = OUTLINE) {
+  const o = B.p.slice();
+  for (let y = 0; y < B.h; y++) for (let x = 0; x < B.w; x++) {
+    if (B.p[y * B.w + x]) continue;
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const v = bget(B, x + a, y + b); return v && v !== col; })) o[y * B.w + x] = col;
+  }
+  B.p = o; return B;
+}
+function bufCanvas(B, flip = false) {
+  const c = document.createElement('canvas'); c.width = B.w; c.height = B.h;
+  const x = c.getContext('2d');
+  for (let y = 0; y < B.h; y++) for (let i = 0; i < B.w; i++) {
+    const v = B.p[y * B.w + i]; if (!v) continue;
+    x.fillStyle = v; x.fillRect(flip ? B.w - 1 - i : i, y, 1, 1);
+  }
+  return c;
+}
+const ACACHE = new Map();
+function art(key, build, flip = false) {
+  const k = key + (flip ? '|f' : '');
+  let c = ACACHE.get(k);
+  if (!c) { c = bufCanvas(build(), flip); ACACHE.set(k, c); }
+  return c;
+}
+
+/* ---------- characters ----------
+   look: { skin, hair, clothes, pants, boots, eye, feat:[...], head:'hair'|'skull'|'helm'|'lizard'|'bald',
+           plume, beard, hat, bones, tail }
+   dir: n s e w   frame: 0 stand · 1 step · 2 stand · 3 other step */
+function humanoidBuf(o, dir, frame) {
+  const B = newBuf();
+  const side = dir === 'e' || dir === 'w', back = dir === 'n';
+  const S = o.skin, s = shade(S, .8);
+  const H = o.hair || shade(S, .7), h = shade(H, .72), hl = shade(H, 1.28);
+  const C = o.clothes, c = shade(C, .7), cl = shade(C, 1.2);
+  const P = o.pants || shade(C, .5), Bt = o.boots || '#4a2e1a', E = o.eye || OUTLINE;
+  const belt = o.belt || '#4a2e1a';
+  const step = frame === 1 ? 1 : frame === 3 ? -1 : 0;
+  const u = step ? -1 : 0;                          // the body lifts on each step
+  const head = o.head || 'hair';
+  const R = (x, y, w, hh, col) => brect(B, x, y + u, w, hh, col);
+  const X = (x, y, col) => bset(B, x, y + u, col);
+
+  /* legs */
+  if (!side) {
+    const leg = (x, lift) => {
+      const top = 13 + u, boot = lift ? 14 : 15;
+      brect(B, x, top, 2, boot - top, P); brect(B, x, boot, 2, 1, Bt);
+      if (o.bones) { bset(B, x + 1, top, null); }
+    };
+    leg(5, step === 1); leg(9, step === -1);
+  } else if (!step) {
+    brect(B, 7, 13, 2, 2, P); brect(B, 7, 15, 3, 1, Bt);
+  } else {
+    const fP = P, bP = shade(P, .72), fB = Bt, bB = shade(Bt, .72);
+    const frontIsA = step === 1;
+    // back leg (behind), then front leg
+    const legBack = col => { bset(B, 7, 12, col.p); bset(B, 7, 13, col.p); bset(B, 6, 13, col.p); bset(B, 6, 14, col.p); bset(B, 5, 14, col.p); brect(B, 4, 15, 3, 1, col.b); };
+    const legFront = col => { bset(B, 8, 12, col.p); bset(B, 8, 13, col.p); bset(B, 9, 13, col.p); bset(B, 9, 14, col.p); bset(B, 10, 14, col.p); brect(B, 9, 15, 3, 1, col.b); };
+    const A = { p:frontIsA ? fP : bP, b:frontIsA ? fB : bB }, Bc = { p:frontIsA ? bP : fP, b:frontIsA ? bB : fB };
+    legBack(Bc); legFront(A);
+  }
+  if (o.tail && side) { X(5, 11, S); X(4, 12, S); X(3, 12, s); X(2, 13, s); }
+
+  /* back arm (side view, behind the body) */
+  const armSide = (swing, col, hand) => {
+    if (swing > 0) { X(8, 9, col); X(9, 10, col); X(10, 11, hand); }
+    else if (swing < 0) { X(7, 9, col); X(6, 10, col); X(5, 11, hand); }
+    else { X(8, 9, col); X(8, 10, col); X(8, 11, col); X(8, 12, hand); }
+  };
+  if (side && step) armSide(-step, c, s);
+
+  /* torso */
+  if (!side) {
+    R(5, 9, 6, 4, C); R(10, 9, 1, 4, c); R(5, 9, 1, 3, cl);
+    R(5, 11, 6, 1, belt);
+    if (!back) { X(7, 11, '#f2c14e'); X(8, 11, '#f2c14e'); X(7, 9, cl); X(8, 9, cl); }
+    if (o.bones) { R(6, 10, 4, 1, shade(C, .55)); R(6, 12, 4, 1, shade(C, .55)); }
+  } else {
+    R(6, 9, 4, 4, C); R(6, 9, 1, 4, c); R(9, 9, 1, 2, cl); R(6, 11, 4, 1, belt);
+    if (o.bones) { R(7, 10, 3, 1, shade(C, .55)); R(7, 12, 3, 1, shade(C, .55)); }
+  }
+
+  /* arms */
+  if (!side) {
+    // two-pixel arms hang beside the body; the one opposite the lifted leg swings forward and reads longer
+    const arm = (x, len, sleeve, sh, hand) => { R(x, 9, 2, len, sleeve); R(x === 3 ? 3 : 12, 9, 1, len, sh); R(x, 9 + len, 2, 1, hand); };
+    const L = step === -1 ? 3 : step === 1 ? 1 : 2, Rr = step === 1 ? 3 : step === -1 ? 1 : 2;
+    arm(3, L, C, c, S); arm(11, Rr, C, c, s);
+    R(4, 9, 1, 1, c); R(11, 9, 1, 1, c);
+  } else armSide(step, cl, S);
+
+  /* head */
+  const y0 = 1;
+  if (head === 'helm') {
+    const A = o.clothes2 || C, a = shade(A, .7), al = shade(A, 1.25);
+    R(5, y0, 6, 1, A); R(4, y0 + 1, 8, 7, A); R(5, y0 + 8, 6, 0, A);
+    R(4, y0 + 1, 1, 7, al); R(11, y0 + 1, 1, 7, a); R(5, y0 + 1, 2, 1, al);
+    if (!back) {
+      if (side) { R(8, y0 + 4, 4, 1, OUTLINE); X(11, y0 + 5, a); }
+      else { R(5, y0 + 4, 6, 1, OUTLINE); X(7, y0 + 6, a); X(8, y0 + 6, a); }
+      if (o.eye) { if (side) X(10, y0 + 4, o.eye); else { X(6, y0 + 4, o.eye); X(9, y0 + 4, o.eye); } }
+    }
+    if (o.plume) { X(7, y0 - 1, o.plume); X(8, y0 - 1, o.plume); X(8, y0 - 2 < 0 ? 0 : y0 - 2, shade(o.plume, 1.2)); if (side) { X(6, y0 - 1, o.plume); X(5, y0, o.plume); } }
+  } else {
+    // skull, face
+    const face = head === 'skull' ? S : S;
+    if (side) {
+      R(5, y0 + 1, 7, 7, face); R(6, y0, 5, 1, face); X(12, y0 + 5, face); R(6, y0 + 7, 5, 1, face);
+    } else {
+      R(5, y0, 6, 1, face); R(4, y0 + 1, 8, 7, face); R(5, y0 + 7, 6, 1, face);
+      R(4, y0 + 6, 1, 1, s); R(11, y0 + 5, 1, 2, s);
+    }
+    if (head === 'hair' || head === 'lizard') {
+      if (back) {
+        R(5, y0, 6, 1, H); R(4, y0 + 1, 8, 6, H); R(5, y0 + 7, 6, 1, h); R(11, y0 + 2, 1, 5, h); R(5, y0 + 1, 3, 1, hl);
+      } else if (side) {
+        R(6, y0, 5, 1, H); R(5, y0 + 1, 7, 2, H); R(4, y0 + 2, 3, 5, H); X(5, y0 + 7, h); X(6, y0 + 7, h); X(11, y0 + 3, H);
+        R(7, y0 + 1, 3, 1, hl); X(4, y0 + 6, h);
+        if (head === 'lizard') { R(5, y0 + 1, 7, 2, H); }
+      } else {
+        R(5, y0, 6, 1, H); R(4, y0 + 1, 8, 2, H); R(4, y0 + 3, 2, 3, H); R(10, y0 + 3, 2, 3, H); X(7, y0 + 3, H); X(8, y0 + 3, H);
+        R(6, y0 + 1, 2, 1, hl); X(11, y0 + 3, h); X(11, y0 + 4, h); X(4, y0 + 5, h);
+      }
+    }
+    if (head === 'lizard') {
+      // crest spikes instead of hair and a snout
+      if (!side) { X(5, y0 - 1 < 0 ? 0 : y0 - 1, h); X(7, 0, h); X(9, 0, h); }
+      else { X(5, 0, h); X(7, 0, h); X(9, 0, h); X(13, y0 + 5, S); X(12, y0 + 6, S); X(13, y0 + 6, s); }
+    }
+    if (head === 'hat' && o.hat) {
+      const T = o.hat, t = shade(T, .7);
+      if (side) { R(5, 0, 6, 3, T); R(3, 3, 10, 1, t); }
+      else { R(5, 0, 6, 3, T); R(3, 3, 10, 1, t); }
+      if (!back) { R(4, 4, 1, 2, H); R(11, 4, 1, 2, H); }
+    }
+    // eyes
+    if (!back) {
+      if (head === 'skull') {
+        if (side) { R(9, y0 + 3, 2, 2, OUTLINE); X(11, y0 + 5, OUTLINE); }
+        else { R(5, y0 + 3, 2, 2, OUTLINE); R(9, y0 + 3, 2, 2, OUTLINE); X(7, y0 + 5, OUTLINE); X(8, y0 + 5, OUTLINE); for (let i = 5; i <= 10; i += 2) X(i, y0 + 7, s); }
+      } else if (side) { X(10, y0 + 4, E); X(10, y0 + 5, E); X(9, y0 + 6, '#f09090'); }
+      else { X(6, y0 + 4, E); X(6, y0 + 5, E); X(9, y0 + 4, E); X(9, y0 + 5, E); X(5, y0 + 6, '#f09090'); X(10, y0 + 6, '#f09090'); }
+      if (o.beard) {
+        const Bd = o.beard;
+        if (side) { R(8, y0 + 6, 4, 2, Bd); R(9, y0 + 8, 2, 1, Bd); }
+        else { R(5, y0 + 6, 6, 2, Bd); R(6, y0 + 8, 4, 1, Bd); X(7, y0 + 6, S); X(8, y0 + 6, S); }
+      }
+    }
+  }
+
+  /* kin & monster features */
+  const f = o.feat || [];
+  if (f.includes('pointy')) { if (side) { X(6, y0 + 4, S); X(5, y0 + 3, S); } else { X(3, y0 + 4, S); X(2, y0 + 3, S); X(12, y0 + 4, s); X(13, y0 + 3, s); } }
+  if (f.includes('longear')) { if (side) { X(6, y0 + 4, S); X(5, y0 + 3, S); X(4, y0 + 2, S); } else { X(3, y0 + 4, S); X(2, y0 + 3, S); X(1, y0 + 2, S); X(12, y0 + 4, s); X(13, y0 + 3, s); X(14, y0 + 2, s); } }
+  if (f.includes('crest')) { const cc = o.crest || '#f2c14e'; if (side) { X(6, 0, cc); X(5, 0, cc); X(7, 0, shade(cc, .8)); } else { X(7, 0, cc); X(8, 0, cc); X(9, 0, shade(cc, .8)); } }
+  if (f.includes('fins')) { const fc = '#3ac0b0'; if (side) { X(4, y0 + 1, fc); X(3, y0 + 2, fc); X(3, y0 + 3, shade(fc, .75)); } else { X(3, y0 + 3, fc); X(2, y0 + 3, fc); X(3, y0 + 4, shade(fc, .75)); X(12, y0 + 3, fc); X(13, y0 + 3, fc); X(12, y0 + 4, shade(fc, .75)); } }
+  if (f.includes('leaf')) { X(8, 0, '#2f8a34'); X(9, 0, '#7ad06a'); X(10, 0, '#7ad06a'); if (!side) X(7, 0, '#2f8a34'); }
+  if (f.includes('cracks') && !back) { X(side ? 8 : 5, y0 + 2 + 1, s); X(side ? 7 : 10, y0 + 6, s); }
+  if (f.includes('glowEyes') && !back) { if (side) X(10, y0 + 4, '#ff3a3a'); else { X(6, y0 + 4, '#ff3a3a'); X(9, y0 + 4, '#ff3a3a'); } }
+  return outlineBuf(B);
+}
+function humanoid(o, dir, frame) {
+  const side = dir === 'w';
+  const key = 'H|' + JSON.stringify(o) + '|' + (side ? 'e' : dir) + frame;
+  return art(key, () => humanoidBuf(o, side ? 'e' : dir, frame), side);
+}
+
+/* ---------- looks ---------- */
+const KINLOOK = {
+  sylph:{ feat:['pointy'] }, skyling:{ feat:['crest'] }, stone:{ feat:['cracks'] },
+  tide:{ feat:['fins'] }, sprig:{ feat:['leaf'] }, glitch:{ feat:[] }
+};
+function heroLook(h) {
+  return { skin:KINS[h.kin].skin, hair:h.hair, clothes:h.clothes, feat:KINLOOK[h.kin].feat, crest:shade(h.hair, 1.3) };
+}
+const MLOOK = {
+  goblin:  { skin:'#7ab83a', head:'bald', clothes:'#8a5a2b', pants:'#5a3a1a', feat:['longear'], eye:'#ff3a3a' },
+  skel:    { skin:'#f0e8d4', head:'skull', clothes:'#e0d8c0', pants:'#d0c8b0', boots:'#a8a090', belt:'#8a8270', bones:1 },
+  knight:  { skin:'#8a96b0', head:'helm', clothes:'#8a96b0', pants:'#565e78', boots:'#3a4058', belt:'#c8922a', plume:'#d83a3a', eye:'#ff3a3a' },
+  sentinel:{ skin:'#a8b0ac', head:'helm', clothes:'#a8b0ac', pants:'#76807c', boots:'#5a6460', belt:'#76807c', plume:'#c8c8b0' },
+  statue:  { skin:'#a8b0ac', head:'helm', clothes:'#a8b0ac', pants:'#76807c', boots:'#5a6460', belt:'#76807c', plume:'#c8c8b0' },
+  lizard:  { skin:'#4ab06a', head:'lizard', hair:'#2a7a44', clothes:'#a8642a', pants:'#5a3a1a', tail:1, eye:'#f2d03a' }
+};
+
+/* ---------- creatures (hand-drawn, 2 frames) ---------- */
+function slimeBuf(base, f) {
+  const B = newBuf(), w = f ? 6.6 : 5.6, hgt = f ? 5.2 : 6.6, cx = 8, by = 14, cy = by - hgt * .7;
+  const lt = shade(base, 1.35), dk = shade(base, .68);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = (x + .5 - cx) / w, dy = (y + .5 - cy) / hgt;
+    if (y > by || dx * dx + dy * dy > 1) continue;
+    let col = base;
+    if (dy > .45 || y === by) col = dk;
+    else if (dx < -.15 && dy < -.25) col = lt;
+    bset(B, x, y, col);
+  }
+  const ey = Math.round(cy) + 0;
+  bset(B, Math.round(cx - w * .45), ey - 2, '#ffffff'); bset(B, Math.round(cx - w * .45) + 1, ey - 3, '#ffffff');
+  for (const ex of [Math.round(cx - 2), Math.round(cx + 1)]) { bset(B, ex, ey, OUTLINE); bset(B, ex, ey + 1, OUTLINE); }
+  bset(B, Math.round(cx - 1), ey + 2, dk); bset(B, Math.round(cx), ey + 2, dk);
+  return outlineBuf(B);
+}
+function jellyBuf(f) {
+  const B = newBuf(), J = '#f29ad8', j = '#b05aa0', jl = '#ffd0f0';
+  for (let y = 2; y <= 8; y++) for (let x = 2; x <= 13; x++) {
+    const dx = (x + .5 - 8) / 6, dy = (y + .5 - 8.5) / 6.4;
+    if (dx * dx + dy * dy <= 1) bset(B, x, y, dy < -.55 && dx < 0 ? jl : y >= 8 ? j : J);
+  }
+  for (let i = 0; i < 5; i++) {
+    const x0 = 3 + i * 2 + (i > 1 ? 1 : 0);
+    for (let k = 0; k < 6; k++) bset(B, x0 + ((k + i + f) % 4 < 2 ? 0 : 1), 9 + k, k % 2 ? j : J);
+  }
+  bset(B, 6, 5, OUTLINE); bset(B, 6, 6, OUTLINE); bset(B, 9, 5, OUTLINE); bset(B, 9, 6, OUTLINE);
+  return outlineBuf(B);
+}
+const CREATURES = {
+  bat: [
+    ["........", ".P......", ".PP.....", ".PPP....", "..PPP.v.", "..PvPPvv", "...PvPrv", "....PPvv", ".....Pvv", "......vv", "......w.", "........", "........", "........", "........", "........"],
+    ["........", "........", "........", "........", "......v.", "......vv", "....PPrv", "..PPPPvv", ".PPvPPvv", ".PP.PvPv", ".P....vv", "......w.", "........", "........", "........", "........"]
+  ],
+  skull: [
+    ["........", "........", "........", "........", "....WWWW", "...WWWWW", "..WWWWWW", "..WkkWWW", "..WkkWWW", "..WWWWWk", "...gWWWW", "....WgWg", "....gggg", "........", "........", "........"],
+    ["........", "........", "........", "........", "........", "....WWWW", "...WWWWW", "..WWWWWW", "..WkkWWW", "..WkkWWW", "..WWWWWk", "...gWWWW", "....WgWg", "....gggg", "........", "........"]
+  ],
+  ghost: [
+    ["........", "........", ".....WWW", "....WWWW", "...WWWWW", "...WWkkW", "..WWWkkW", "..WWWWWW", "..WWWWWk", "..WWWWWW", "..WWWWWW", "..gWWWWW", "..gWWgWW", "..g.gg.W", "......g.", "........"],
+    ["........", "........", "........", ".....WWW", "....WWWW", "...WWWWW", "...WWkkW", "..WWWkkW", "..WWWWWW", "..WWWWWk", "..WWWWWW", "..gWWWWW", "..WWgWWg", "..W.g.gg", "...g....", "........"]
+  ],
+  squid: [
+    ["........", "........", "......ee", ".....eee", "....eeee", "....eneE", "...eeeee", "...ekeek", "...eeeee", "....EeeE", "...E.e.e", "..E..e.E", "..E.E..e", "...E....", "........", "........"],
+    ["........", "........", "........", "......ee", ".....eee", "....eeee", "....eneE", "...eeeee", "...ekeek", "...eeeee", "....EeeE", "...e.E.e", "...e.E..", "....e..E", "........", "........"]
+  ],
+  spider: [
+    ["........", "........", "........", "......v.", ".v...Pv.", "..v.PPPv", "...vPPPP", "vvvPPPPP", "...PrPPP", "..vPPPPP", ".v.vPPPP", "v...vPvP", "....v..v", "...v....", "........", "........"],
+    ["........", "........", "........", "........", "......v.", ".....Pv.", "v...PPPv", ".vvvPPPP", "...PPPPP", "..vPrPPP", "vv.PPPPP", "...vvPPP", "..v..vPv", ".v....v.", "........", "........"]
+  ]
+};
+const CREATURE_ASYM = {
+  rat: [
+    ["................", "................", "................", "................", "................", "................", "..........GG....", ".........GmmG...", "....ggggggggg...", "...ggggggggkgg..", "..gggggggggggggm", ".mgGgggggggggg..", "m..GGgggggGG....", "....m.m...m.m...", "................", "................"],
+    ["................", "................", "................", "................", "................", "................", "..........GG....", ".........GmmG...", "....ggggggggg...", "...ggggggggkgg..", "..gggggggggggggm", "..gGgggggggggg..", ".m.GGgggggGG....", "m....m.m.m.m....", "................", "................"]
+  ],
+  duck: [
+    ["................", "................", "................", "........WWW.....", ".......WWWWW....", ".......WWkWWyy..", ".......WWWWWyyy.", "........WWWW....", "..W.....WWW.....", "..WWWWWWWWWW....", "..WWWWWgWWWWW...", "...WWWWWWgWWW...", "....WWWWWWWW....", ".....ggggggg....", "......y...y.....", ".....yy..yy....."],
+    ["................", "................", "................", "........WWW.....", ".......WWWWW....", ".......WWkWWyy..", ".......WWWWWyyy.", "........WWWW....", "..W.....WWW.....", "..WWWWWWWWWW....", "..WWWWWgWWWWW...", "...WWWWWWgWWW...", "....WWWWWWWW....", ".....ggggggg....", ".......y.y......", "......yy.yy....."]
+  ]
+};
+const CPAL = {
+  bat:{ P:'#8a4ab8', v:'#4a2a6a', r:'#ff4a4a' },
+  skull:{ W:'#f0e8d4', g:'#b0a890', k:OUTLINE },
+  ghost:{ W:'#e8f4ff', g:'#a8c4e0', k:'#3a3a6a' },
+  squid:{ e:'#e86a4a', E:'#a83a2a', n:'#ffb090', k:OUTLINE },
+  spider:{ P:'#6a3a8a', v:'#3a1a4a', r:'#ff4a4a' },
+  rat:{ g:'#9a8a8a', G:'#6a5a5a', m:'#f29ac0', k:OUTLINE },
+  duck:{ W:'#ffffff', g:'#c8d0e0', y:'#f2a03a', k:OUTLINE }
+};
+function creature(kind, f, flip = false) {
+  if (kind === 'slime' || kind === 'fslime') return art(kind + f, () => slimeBuf(kind === 'slime' ? '#5ad06a' : '#f07a2a', f));
+  if (kind === 'jelly') return art('jelly' + f, () => jellyBuf(f));
+  if (CREATURES[kind]) return art(kind + f, () => outlineBuf(fromRows(CREATURES[kind][f], CPAL[kind], true)));
+  if (CREATURE_ASYM[kind]) return art(kind + f, () => outlineBuf(fromRows(CREATURE_ASYM[kind][f], CPAL[kind])), flip);
+  return null;
+}
+
+/* ---------- bosses (24×24, left halves mirrored) ---------- */
+const BOSSART = {
+  warden: { pal:{ A:'#7a8a78', a:'#4e5c4c', l:'#a0b09c', W:'#f0e8d4', g:'#b0a890', k:OUTLINE, r:'#ff3a3a', y:'#c8922a', x:'#8a5a3a' }, rows:[
+    "............", "......aaaaaa", "....aaAAAAAA", "...aAAlllAAA", "..aAAlAAAAAA", "..aAAWWWWWWW", "..aAWWWWWWWW", "..aAWkkkWWWW", "..aAWkrkWWWW", "...aWWkWWWWW", "....WgWgWgWW", ".....gggggg.", "..aaAAAAAAAA", ".aAAlAAAyAAA", "aAAlAWkWkWkW", "aAAAAWWWWWWr", "aAaAAWkWkWkr", ".a.aAWWWWWWW", ".x..aaAAAAAA", ".xx..aAAaaAA", "..x..aAa..aA", ".....aAa..aA", "....aaAa..aA", "....aaaa..aa"] },
+  golem: { pal:{ S:'#7a6a64', s:'#4a3e3a', l:'#9a8a80', O:'#ff6a1a', y:'#ffd23a', k:OUTLINE }, rows:[
+    "............", "............", ".......sssss", ".....ssSSSSS", "....sSSlllSS", "....sSlSSSSS", "....sSSyySSS", "....sSSOySSS", "....sSSSSSOS", "..sssSSSSOOS", ".sSSSssSSSSS", "sSlSSSsSSSOS", "sSlSOSSsSSOO", "sSSOOSSsSSSO", "sSSSOSSsSSSS", ".sSSSSs.sSSS", "..ssss..sSSO", "........sSSS", "......ssSSSS", ".....sSSSSSs", ".....sSSOSs.", ".....sSSSSs.", "....ssSSSSs.", "....sssssss."] },
+  king: { pal:{ Y:'#f2c14e', y:'#c8922a', K:'#20182e', k:'#120c1c', R:'#ff2a4a', P:'#5a2a8a', p:'#3a1a5a', l:'#8a4ab8', c:'#7ae0f0' }, rows:[
+    "............", "....Y...Y...", "....YY.YYY.Y", "....YyYYcYYY", "....yyyyyyyy", "....KKKKKKKK", "...KKKKKKKKK", "...KKRRKKKKK", "...KKKRKKKKK", "...KKKKKKKKK", "....KKkkKKKK", ".....KKKKKKK", "...PPPPPPPPP", "..PllPPPPPPY", ".PlPPPPPPPPY", ".PPPPPpPPPPP", "PPPpPPPpPPPP", "PPPpPPPPpPPP", "PPpPPPPPpPPP", "PPpPPPPPPpPP", "PpPPPPPPPpPP", "PpPPPPPPPPpP", "ppPPPPPPPPpp", "pppppppppppp"] }
+};
+const WYRM = { pal:{ B:'#2a7ad0', b:'#1a4a90', l:'#7ac0f0', W:'#ffffff', k:OUTLINE, F:'#7ae0f0', f:'#3ab0c0', y:'#f2d03a', r:'#ff4a4a' }, rows:[
+  "........................", ".............FF.........", "............FfF.........", ".........BBBBF..........", "........BBlBBBB.........", ".......BBlBBBBBB........", ".......BBByrBBBBB.......", ".......BBBBBBBBBBBB.....", "........BbBBBBBBBBBBB...", ".........bWbWbBBBBBBBB..", "............bbBBBBBBBB..", "...........FbBBBBBBBB...", "..........FfBBlBBBBb....", ".........FfBBlBBBBb.....", "........FfBBlBBBBb......", "........fBBlBBBBb.......", ".......FBBlBBBBbb.......", ".......BBlBBBBbb........", "......BBlBBBBbb.........", "......BBBBBBbb..........", "......bBBBBbb...........", ".......bbbbb............", "........................", "........................"] };
+function bossArt(kind) {
+  if (kind === 'wyrm') return art('boss-wyrm', () => outlineBuf(fromRows(WYRM.rows, WYRM.pal)));
+  const A = BOSSART[kind];
+  return art('boss-' + kind, () => outlineBuf(fromRows(A.rows, A.pal, true)));
+}
+
+/* ---------- world objects ---------- */
+const OBJ = {
+  tree:{ pal:{}, rows:["......LLLL......", "....LLllLLLL....", "...LllllLLLLL...", "..LLlllLLLLDLL..", "..LlllLLLLLLDL..", ".LLllLLLLLLLDDL.", ".LLlLLLLLLLDDLL.", ".LLLLLLLLLDDDLL.", "..LLLLLLLDDDDL..", "..DLLLLDDDDDDD..", "...DDDDDDDDDD...", ".....DDbbDD.....", "......bbbB......", "......bbbB......", ".....bbbbBB.....", "................"] },
+  rock:{ pal:{ g:'#c8b8a0', s:'#a89880', S:'#7a6a58', T:'#54483c' }, rows:["................", "......sssss.....", "....ssggsssS....", "...sggsssssSS...", "..sggsssssSSSS..", "..sgsssssSSSSTT.", ".ssssssSSSSSSTT.", ".sssssSSSSSSTTT.", ".ssssSSSSSSTTTT.", ".sSSSSSSSTTTTTT.", ".SSSSSSSTTTTTTT.", "..SSSSTTTTTTTT..", "...TTTTTTTTTT...", "................", "................", "................"] },
+  boulder:{ pal:{ g:'#d0c8b8', s:'#a09888', S:'#706858', T:'#4a443a' }, rows:["................", "................", "................", ".....ssssss.....", "...ssggssssSS...", "..sggsssssSSSS..", "..sgssssTsSSSS..", ".sssssssTSSSSST.", ".ssssssTSSSSSTT.", ".sssssSSTSSSTTT.", ".SsSSSSSSSSTTTT.", "..SSSSSSSTTTTT..", "...TTTTTTTTTT...", "................", "................", "................"] },
+  chest:{ pal:{}, rows:["................", "................", "................", "...BBBBBBBBBB...", "..BbbnbbbbbbbB..", "..BbnbbbbbbbbB..", "..BbbbbbbbbbbB..", "..YYYYYYYYYYYY..", "..BbbbbyybbbbB..", "..BbbbykkybbbB..", "..BbbbbyybbbbB..", "..BbbbbbbbbbbB..", "..BBBBBBBBBBBB..", "................", "................", "................"] },
+  chesto:{ pal:{}, rows:["................", "...BBBBBBBBBB...", "..BbbbbbbbbbbB..", "..BkkkkkkkkkkB..", "..BkyykkkykkkB..", "..YYYYYYYYYYYY..", "..BbbbbbbbbbbB..", "..BbbbbbbbbbbB..", "..BbbbbbbbbbbB..", "..BbbbbbbbbbbB..", "..BbbbbbbbbbbB..", "..BBBBBBBBBBBB..", "................", "................", "................", "................"] },
+  pot:{ pal:{ e:'#c8683a', E:'#7a3a1a', n:'#f0b080' }, rows:["................", "................", ".....EEEEEE.....", "......eeee......", ".....EeeeeE.....", "....EeneeeeE....", "...EennneeeeE...", "...EennneeeeE...", "...EeneeeeeEE...", "...EeeeeeeeEE...", "....EEeeeeEE....", ".....EEEEEE.....", "................", "................", "................", "................"] },
+  sign:{ pal:{}, rows:["................", "................", "..BBBBBBBBBBBB..", "..BnnnnnnnnnnB..", "..BnbbbbbbbbnB..", "..BnnnnnnnnnnB..", "..BnbbbbbnnnnB..", "..BnnnnnnnnnnB..", "..BBBBBBBBBBBB..", "......BbbB......", "......BbbB......", "......BbbB......", ".....BBBBBB.....", "................", "................", "................"] },
+  brazier:{ pal:{ s:'#9aa4a0', S:'#6a7470', T:'#3a4440' }, rows:["................", "................", "................", "................", "................", "................", "..ssssssssssss..", "..sSTTTTTTTTSs..", "...sSSSSSSSSs...", "....sSSSSSSs....", "......sSSs......", "......sSSs......", "......sSSs......", ".....ssSSss.....", "....sSSSSSSs....", "................"] },
+  torch:{ pal:{}, rows:["................", "................", "................", "................", "................", "................", "................", ".....bbbbbb.....", "......bbbb......", "......BbbB......", "......BbbB......", "......BbbB......", "......BbbB......", ".....BBBBBB.....", "................", "................"] },
+  fount:{ pal:{ s:'#9aa4a0', S:'#6a7470', c:'#8ae8f4', C:'#3a8ad8', p:'#f29ad8' }, rows:["................", "................", ".......cc.......", "......cwcc......", ".......SS.......", "......sSSs......", "..ssssssssssss..", ".sCCCCCCCCCCCCs.", ".sCccCCCCCcCCCs.", ".SCCCCCCCCCCCCS.", "..SSSSSSSSSSSS..", "...SSSSSSSSSS...", "....SSSSSSSS....", "................", "................", "................"] },
+  heart:{ pal:{ r:'#e8404a', m:'#ffc0c8', R:'#9a2030' }, rows:["................", "................", "................", "................", "....rr...rr.....", "...rmrr.rrrr....", "...rmrrrrrrr....", "...rrrrrrrRr....", "....rrrrrRr.....", ".....rrrRr......", "......rRr.......", ".......r........", "................", "................", "................", "................"] },
+  bolt:{ pal:{}, rows:["................", "................", "................", "........yy......", ".......yy.......", "......yyy.......", ".....yyy........", "....yyyyyyy.....", ".......yyy......", "......yyy.......", ".....yy.........", "....y...........", "................", "................", "................", "................"] },
+  gem:{ pal:{ l:'#4ae07a', L:'#2a9a4a', w:'#d0ffe0' }, rows:["................", "................", "................", ".......ll.......", "......lwll......", ".....lwllll.....", "....llllllLL....", "....LlllllLL....", ".....LlllLL.....", "......LLLL......", ".......LL.......", "................", "................", "................", "................", "................"] },
+  key:{ pal:{}, rows:["................", "................", "................", "......yyy.......", ".....y...y......", ".....y...y......", "......yyy.......", ".......y........", ".......yy.......", ".......y........", ".......yyy......", "................", "................", "................", "................", "................"] },
+  meal:{ pal:{ e:'#d8823a', E:'#9a5220' }, rows:["................", "................", "................", "........eee.....", ".......eeeee....", "......ewwweee...", "......eeeeeee...", "......Eeeeeee...", ".......EeeeE....", "........EeE.....", ".......W.E......", "......WW........", ".....WW.........", "................", "................", "................"] },
+  shard:{ pal:{ c:'#4ad0f0', C:'#2a7ad0', w:'#ffffff' }, rows:["................", "................", ".......w........", ".......wc.......", "......wcC.......", "......ccC.......", ".....wccCC......", ".....cccCC......", "....wcccCCC.....", "....ccccCCC.....", "...cccccCCCC....", "................", "................", "................", "................", "................"] }
+};
+function obj(name) {
+  const O = OBJ[name];
+  return art('obj-' + name, () => outlineBuf(fromRows(O.rows, O.pal)));
+}
+
 /* ---------- rules data ---------- */
 const KINS = {
   sylph:  { name:'Sylph', blurb:'Pointy-eared folk of the plains.', special:'Focus: spend 1 Energy to add +1D to your next roll.', weapon:'Sword', skin:'#f1c9a0' },
@@ -765,28 +1094,28 @@ for (const id in ROOMS) ROOMS[id].id = id;
 
 /* ---------- inhabitants: each only wants to talk about one thing ---------- */
 const NPCS = {
-  elder: { name:'Elder Maple', look:{ H:'#e8e8e8', C:'#6a4ab8' }, talk: () => {
+  elder: { name:'Elder Maple', look:{ skin:'#f1c9a0', hair:'#e8e8e8', clothes:'#6a4ab8', beard:'#e8e8e8' }, talk: () => {
     const n = S.shards;
     if (n === 0) return `The <b>Azure Prism</b> kept our land bright — until the <b>Hollow King</b> broke it and sealed himself in the Azure Keep behind a barrier. He hid the three <b>Prism Shards</b> in three lairs: the <em>Hollow Barrow</em> to the south, the <em>Mere Spire</em> to the east and the <em>Ember Grotto</em> to the west. Bring me all three and the barrier will fall. Start in the woods — the Barrow is the gentlest of the three.`;
     if (n < 3) return `${n} shard${n > 1 ? 's' : ''}! I can feel the Prism humming. Each shard also lets you <b>reroll</b> a bad roll once — rest here in the village and they recharge. ${3 - n} more to go.`;
     return `All three shards! Go north, hero. The barrier will not hold against them now.`; } },
-  shop: { name:'Brindle the Merchant', look:{ H:'#8a5a2b', C:'#3aa04a' }, talk: () => openShop() },
-  gambler: { name:'Lucky Fen', look:{ H:'#f2d03a', C:'#d83ab0' }, talk: () => openGamble() },
-  kid: { name:'Pip', look:{ H:'#d83a3a', C:'#f08a2a' }, talk: () => pick([
+  shop: { name:'Brindle the Merchant', look:{ skin:'#f1c9a0', hair:'#8a5a2b', clothes:'#3aa04a', head:'hat', hat:'#7a3a1a' }, talk: () => openShop() },
+  gambler: { name:'Lucky Fen', look:{ skin:'#f1c9a0', hair:'#f2d03a', clothes:'#d83ab0', feat:['pointy'] }, talk: () => openGamble() },
+  kid: { name:'Pip', look:{ skin:'#f6d2b0', hair:'#d83a3a', clothes:'#f08a2a' }, talk: () => pick([
     'The ducks here are the best ducks. That one is called Sir Quackington. He is very brave.',
     'Did you know ducks can sleep with one eye open? I tried it. I fell over.',
     'I want to be a duck when I grow up. Or a hero. A duck hero!']) },
   duck: { name:'Sir Quackington', duck:1, talk: () => pick(['Quack.','Quack quack!','…quack?','QUACK.']) },
-  moss: { name:'Mossbeard', look:{ H:'#5a7a3a', C:'#7a4a1a' }, talk: () => 'Mushrooms, friend! The best ones grow on the Barrow’s doorstep. Though I’d not pick anything off that dais inside… the statues in there get <b>very</b> touchy about their treasure. And that fountain? Pixies live in it. A dip heals you right up.' },
-  stonecut: { name:'Old Grit', look:{ H:'#6a6a6a', C:'#8a5a2b' }, talk: () => 'Rocks. Lovely rocks. Not all rocks are the same, see. A <b>boulder</b> wants a big hammer. A <b>cracked wall</b> wants a bomb — but you’ll only spot the crack if you <b>Inspect</b> the room. Rocks!' },
-  fisher: { name:'Old Nell', look:{ H:'#f4f4f4', C:'#3a6ad8' }, talk: () => 'Fish don’t bite since that Spire filled with monsters. There’s a wyrm in the top pool, they say — slippery thing, ducks under whenever you swing. If only you could <b>freeze</b> the water around it…' },
-  guard: { name:'Sir Rook', look:{ H:'#8a8a8a', C:'#8a96b0' }, talk: () => S.shards >= 3 ? 'The barrier… it’s gone! Go, hero. End this.' : `The barrier. I watch the barrier. Nothing passes the barrier — not without all three Prism Shards. You have ${S.shards}.` },
-  owl: { name:'Hoot the Napper', look:{ H:'#8a5a2b', C:'#c8a060' }, talk: () => { S.flags.owl = 1; return 'Zzz… wha? Oh! I’ve been asleep for ages. There’s a chest over there I’ve been meaning to open — take it, it’s yours. Watch out for the pit traps in the eastern corridor. They don’t look like much.'; } }
+  moss: { name:'Mossbeard', look:{ skin:'#a6cf6a', hair:'#5a7a3a', clothes:'#7a4a1a', beard:'#3a9a3e', feat:['leaf'] }, talk: () => 'Mushrooms, friend! The best ones grow on the Barrow’s doorstep. Though I’d not pick anything off that dais inside… the statues in there get <b>very</b> touchy about their treasure. And that fountain? Pixies live in it. A dip heals you right up.' },
+  stonecut: { name:'Old Grit', look:{ skin:'#a8a4a0', hair:'#6a6a6a', clothes:'#8a5a2b', beard:'#8a8a8a', feat:['cracks'] }, talk: () => 'Rocks. Lovely rocks. Not all rocks are the same, see. A <b>boulder</b> wants a big hammer. A <b>cracked wall</b> wants a bomb — but you’ll only spot the crack if you <b>Inspect</b> the room. Rocks!' },
+  fisher: { name:'Old Nell', look:{ skin:'#7fc8c0', hair:'#f4f4f4', clothes:'#3a6ad8', head:'hat', hat:'#e8c060', feat:['fins'] }, talk: () => 'Fish don’t bite since that Spire filled with monsters. There’s a wyrm in the top pool, they say — slippery thing, ducks under whenever you swing. If only you could <b>freeze</b> the water around it…' },
+  guard: { name:'Sir Rook', look:{ skin:'#8a96b0', head:'helm', clothes:'#8a96b0', pants:'#565e78', boots:'#3a4058', belt:'#c8922a', plume:'#3a6ad8' }, talk: () => S.shards >= 3 ? 'The barrier… it’s gone! Go, hero. End this.' : `The barrier. I watch the barrier. Nothing passes the barrier — not without all three Prism Shards. You have ${S.shards}.` },
+  owl: { name:'Hoot the Napper', look:{ skin:'#f0d890', hair:'#8a5a2b', clothes:'#c8a060', feat:['crest'], crest:'#f2c14e' }, talk: () => { S.flags.owl = 1; return 'Zzz… wha? Oh! I’ve been asleep for ages. There’s a chest over there I’ve been meaning to open — take it, it’s yours. Watch out for the pit traps in the eastern corridor. They don’t look like much.'; } }
 };
 
 /* ---------- state ---------- */
 let S = null;          // saved state
-const G = { mode:'title', busy:false, room:null, grid:null, base:null, ents:[], chestAt:{}, npcAt:{}, signAt:{}, t:0, frame:0, cb:null, swim:null, dlg:0 };
+const G = { mode:'title', busy:false, room:null, grid:null, base:null, ents:[], chestAt:{}, npcAt:{}, signAt:{}, t:0, frame:0, cb:null, swim:null, dlg:0, hero:{}, held:[], nextMove:0, npcDir:{} };
 const SAVE_KEY = 'azurmere-save-v1';
 
 function newState(hero) {
@@ -853,7 +1182,7 @@ function setMod(x, y, ch, rid = G.room.id) {
 }
 function loadRoom(id, ax, ay) {
   const R = ROOMS[id];
-  G.room = R; S.room = id; S.visited[id] = 1; G.swim = null;
+  G.room = R; S.room = id; S.visited[id] = 1; G.swim = null; G.hero.mv = null; G.hero.bump = null; G.npcDir = {};
   const b = baseGrid(R);
   G.base = b;
   G.grid = b.map(r => r.slice());
@@ -899,6 +1228,7 @@ function findTile(R, ch) {
    RENDERING
    ============================================================ */
 const cv = $('#cv'), ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
 const dark = document.createElement('canvas'); dark.width = cv.width; dark.height = cv.height;
 const dctx = dark.getContext('2d');
 
@@ -925,7 +1255,7 @@ function drawTile(ch, x, y) {
   const T = th(), px = x * TS, py = y * TS, t = G.t;
   switch (ch) {
     case '#':
-      if (T.out) { floor(x, y, T); drawSprite(ctx, T.tree, SPAL[T.tree], px, py); }
+      if (T.out) { floor(x, y, T); ctx.drawImage(obj(T.tree), px, py); }
       else wall(x, y, T);
       return;
     case ',':
@@ -997,32 +1327,24 @@ function drawTile(ch, x, y) {
     return;
   }
   floor(x, y, T);
-  const sp = (n, p) => drawSprite(ctx, n, SPAL[p || n], px, py);
+  const ob = n => ctx.drawImage(obj(n), px, py);
+  const bobY = n => ctx.drawImage(obj(n), px, py + (((t >> 4) + x + y) % 2 ? -1 : 0));
   switch (ch) {
-    case 'C': sp('chest'); break;
-    case 'c': sp('chesto', 'chest'); break;
-    case 'P': sp('pot'); break;
-    case 'H': if ((t >> 4) % 2) sp('heart'); else drawSprite(ctx, 'heart', SPAL.heart, px, py + 1); break;
-    case 'Z': sp('bolt'); break;
-    case 'M': sp('meal'); break;
-    case 'K': sp('key'); break;
-    case 'G': sp('gem'); break;
-    case 'T': sp('torch'); if ((t >> 3) % 2) { ctx.fillStyle = '#fff6b0'; ctx.fillRect(px + 7, py, 2, 2); } break;
-    case 'R': sp('statue'); break;
-    case 'S': sp('sign'); break;
-    case 'F': sp('fount'); if ((t >> 3) % 3 === 0) { ctx.fillStyle = '#fff'; ctx.fillRect(px + 4 + rnd(8), py + rnd(4), 1, 1); } break;
-    case 'o': sp('boulder'); break;
-    case 'i': drawSprite(ctx, 'brz', SPAL.brzOff, px, py); break;
-    case 'I':
-      drawSprite(ctx, 'brz', SPAL.brzOff, px, py);
-      ctx.fillStyle = '#ff6a1a'; ctx.fillRect(px + 4, py + 2 + ((t >> 3) % 2), 8, 6);
-      ctx.fillStyle = '#ffe07a'; ctx.fillRect(px + 6, py + 4, 4, 4);
-      break;
-    case '%':
-      ctx.fillStyle = '#2f7a34';
-      for (let i = 0; i < 6; i++) ctx.fillRect(px + (i * 5) % 14, py + (i * 7) % 14, 3, 3);
-      ctx.fillStyle = '#1f5a26'; ctx.fillRect(px + 2, py + 2, 1, 12); ctx.fillRect(px + 8, py + 1, 1, 13); ctx.fillRect(px + 13, py + 3, 1, 11);
-      break;
+    case 'C': ob('chest'); break;
+    case 'c': ob('chesto'); break;
+    case 'P': ob('pot'); break;
+    case 'H': bobY('heart'); break;
+    case 'Z': bobY('bolt'); break;
+    case 'M': bobY('meal'); break;
+    case 'K': bobY('key'); break;
+    case 'G': bobY('gem'); break;
+    case 'T': ob('torch'); flame(px + 8, py + 6, t + x * 7, 1); break;
+    case 'R': ctx.drawImage(humanoid(MLOOK.statue, 's', 0), px, py); break;
+    case 'S': ob('sign'); break;
+    case 'F': ob('fount'); if ((t >> 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 4 + rnd(8), py + 1 + rnd(4), 1, 1); } break;
+    case 'o': ob('boulder'); break;
+    case 'i': ob('brazier'); break;
+    case 'I': ob('brazier'); flame(px + 8, py + 6, t + x * 5, 1.4); break;
     case 'p':
       ctx.fillStyle = shade(T.floor, .7); ctx.fillRect(px + 2, py + 2, 12, 12);
       ctx.fillStyle = shade(T.floor, 1.12); ctx.fillRect(px + 3, py + 3, 10, 10);
@@ -1038,20 +1360,22 @@ function drawTile(ch, x, y) {
       for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#4a4458' : '#6a6478'; ctx.fillRect(px + 1, py + 1 + i * 3 + (ch === 'D' ? 0 : 1), 14 - (ch === 'D' ? i * 2 : (3 - i) * 2), 3); }
       ctx.fillStyle = '#0c0a16'; ctx.fillRect(px + 1, py + 13, 14, 2);
       break;
-    case 'X': drawSprite(ctx, 'shard', SPAL.shard, px, py - ((t >> 3) % 2)); break;
+    case 'X': ctx.drawImage(obj('shard'), px, py - ((t >> 3) % 2)); if ((t >> 2) % 6 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 4 + rnd(8), py + 2 + rnd(9), 1, 1); } break;
     case 'W': {
       const a = (t / 8) % 4;
       ctx.save(); ctx.globalAlpha = .9; drawSprite(ctx, 'warp', SPAL.warp, px, py); ctx.restore();
       ctx.fillStyle = '#fff'; ctx.fillRect(px + 7 + Math.round(Math.cos(a) * 5), py + 7 + Math.round(Math.sin(a) * 5), 2, 2);
       break;
     }
-    case 'N': {
-      const npc = NPCS[G.npcAt[x + ',' + y]];
-      if (npc && npc.duck) drawSprite(ctx, 'duck', SPAL.duck, px, py + ((t >> 4) % 2), 2, (t >> 6) % 2 === 1);
-      else if (npc) drawSprite(ctx, 'hero', { H:npc.look.H, S:'#f1c9a0', K, C:npc.look.C, c:shade(npc.look.C, .7), B:'#3a2416' }, px, py + ((t >> 5) % 2));
-      break;
-    }
   }
+}
+/* a flickering pixel flame centred on (cx, base) */
+function flame(cx, base, t, size = 1) {
+  const f = (t >> 2) % 4, h = Math.round((5 + (f % 2)) * size), w = Math.round(3 * size);
+  ctx.fillStyle = '#e84a1a'; ctx.fillRect(cx - w, base - h + 2, w * 2, h - 1);
+  ctx.fillStyle = '#ff9a2a'; ctx.fillRect(cx - w + 1, base - h + 1, w * 2 - 2, h - 2);
+  ctx.fillStyle = '#ffe07a'; ctx.fillRect(cx - 1, base - h + 3 + (f === 2 ? 1 : 0), 2, Math.max(1, h - 4));
+  ctx.fillStyle = '#ff9a2a'; ctx.fillRect(cx - 1 + (f % 3) - 1, base - h - 1, 1, 2);
 }
 function lockState(d) {
   const ex = G.room.exits[d]; if (!ex) return 'none';
@@ -1094,33 +1418,100 @@ function drawDoor(x, y) {
     else if (d === 'w') ctx.fillRect(px, py + 2, 4, 12); else ctx.fillRect(px + 12, py + 2, 4, 12);
   }
 }
+/* ---------- motion: everyone glides between tiles ---------- */
+const STEP_MS = 150;
+const now = () => performance.now();
+function startMove(o, fx, fy) { o.mv = { fx, fy, t0:now() }; o.stepN = (o.stepN || 0) + 1; }
+function progress(o) {
+  if (!o.mv) return 1;
+  const p = (now() - o.mv.t0) / STEP_MS;
+  if (p >= 1) { o.mv = null; return 1; }
+  return p;
+}
+function heroMoving() { return !!G.hero.mv && now() - G.hero.mv.t0 < STEP_MS; }
+function posOf(o, x, y) {
+  const p = progress(o);
+  if (p >= 1) return [x * TS, y * TS, 1];
+  return [Math.round((o.mv.fx + (x - o.mv.fx) * p) * TS), Math.round((o.mv.fy + (y - o.mv.fy) * p) * TS), p];
+}
+/* step pose for most of each tile, then plant the feet; the stride alternates legs */
+function walkFrame(o, p) { return p < .65 ? (o.stepN % 2 ? 1 : 3) : 0; }
+function dirOf(dx, dy) { return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n'); }
+function shadow(px, py, w = 10) {
+  ctx.fillStyle = 'rgba(10,8,20,.26)';
+  ctx.fillRect(px + 8 - w / 2, py + 14, w, 2);
+  ctx.fillRect(px + 9 - w / 2, py + 13, w - 2, 1);
+}
+function monsterArt(kind, dir, frame, t) {
+  if (MLOOK[kind]) return humanoid(MLOOK[kind], dir, frame);
+  const f = kind === 'bat' ? (t >> 3) % 2 : (t >> 4) % 2;
+  return creature(kind, f, dir === 'w');
+}
+/* the art used for a monster's battle portrait */
+function portraitArt(kind) {
+  if (ENEMIES[kind] && ENEMIES[kind].boss) return bossArt(kind);
+  return monsterArt(kind, 's', 0, 0);
+}
 function drawEnt(e) {
-  const D = ENEMIES[e.kind], t = G.t;
   if (e.hidden) return;
-  const px = e.x * TS, py = e.y * TS;
-  if (e.dormant) { drawSprite(ctx, 'statue', SPAL.statue, px, py); return; }
+  const [px, py, p] = posOf(e, e.x, e.y);
+  if (e.dormant) { ctx.drawImage(humanoid(MLOOK.statue, 's', 0), px, py); return; }
   if (e.boss) {
-    const bob = Math.round(Math.sin(t / 10) * 2);
-    drawSprite(ctx, D.spr, SPAL[D.pal], px - 8, py - 12 + bob, 4);
+    const bob = Math.round(Math.sin(G.t / 12) * 1.5);
+    if (e.kind === 'wyrm') { ctx.fillStyle = 'rgba(180,230,255,.5)'; ctx.fillRect(px - 4, py + 12, 24, 2); }
+    else shadow(px, py, 22);
+    ctx.drawImage(bossArt(e.kind), px - 4, py - 8 + bob);
     return;
   }
-  const bob = (t >> 4) % 2;
-  if (e.kind === 'bat') drawSprite(ctx, D.spr, SPAL[D.pal], px, py - 2 - bob * 2);
-  else drawSprite(ctx, D.spr, SPAL[D.pal], px, py + bob, 2, (t >> 6) % 2 === 1);
+  const fly = e.kind === 'bat' || e.kind === 'ghost';
+  shadow(px, py, fly ? 6 : 10);
+  const lift = fly ? -3 + Math.round(Math.sin(G.t / 10 + e.x) * 1.5) : 0;
+  ctx.drawImage(monsterArt(e.kind, e.dir || 's', walkFrame(e, p), G.t + e.x * 13), px, py + lift);
+}
+function drawNPC(x, y) {
+  const k = x + ',' + y, npc = NPCS[G.npcAt[k]]; if (!npc) return;
+  const px = x * TS, py = y * TS;
+  shadow(px, py);
+  if (npc.duck) { ctx.drawImage(creature('duck', (G.t >> 5) % 2, ((G.t >> 7) + x) % 2 === 1), px, py); return; }
+  ctx.drawImage(humanoid(npc.look, G.npcDir[k] || 's', 0), px, py);
+}
+function drawHero() {
+  const H = G.hero;
+  let [hx, hy, hp] = posOf(H, S.x, S.y);
+  if (H.bump) {
+    const q = (now() - H.bump.t0) / 120;
+    if (q < 1) { const k = Math.round(Math.sin(q * Math.PI) * 2); hx += DIRV[H.bump.d][0] * k; hy += DIRV[H.bump.d][1] * k; }
+    else H.bump = null;
+  }
+  G.heroPx = [hx, hy];
+  if (G.mode === 'combat' && G.hurtT > 0) { G.hurtT--; if (G.hurtT % 4 < 2) return; }
+  const swim = G.grid[S.y][S.x] === '~' && !H.mv;
+  if (!swim) shadow(hx, hy);
+  const img = humanoid(heroLook(S.hero), S.face, walkFrame(H, hp));
+  if (S.hero.kin === 'glitch' && G.t % 140 < 6) {
+    // glitchlings flicker: a band of the sprite slips sideways for a moment
+    const band = 4 + (G.t % 3) * 3;
+    ctx.drawImage(img, 0, 0, 16, band, hx, hy, 16, band);
+    ctx.drawImage(img, 0, band, 16, 4, hx + (G.t % 2 ? 2 : -2), hy + band, 16, 4);
+    ctx.drawImage(img, 0, band + 4, 16, 12 - band, hx, hy + band + 4, 16, 12 - band);
+    ctx.fillStyle = 'rgba(122,224,240,.5)'; ctx.fillRect(hx, hy + band, 16, 1);
+  } else ctx.drawImage(img, hx, hy);
+  if (swim) { ctx.fillStyle = 'rgba(42,122,208,.85)'; ctx.fillRect(hx, hy + 10, TS, 6); ctx.fillStyle = 'rgba(160,220,255,.8)'; ctx.fillRect(hx + 1, hy + 10, TS - 2, 1); }
 }
 function render() {
   G.t++;
   if (!G.room) return;
+  // keep walking while a direction is held
+  if (G.held.length && canAct() && !heroMoving() && now() >= G.nextMove) tryMove(G.held[G.held.length - 1]);
   const g = G.grid;
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) drawTile(g[y][x], x, y);
-  for (const e of G.ents) drawEnt(e);
-  // hero
-  const pal = heroPal(S.hero);
-  const walk = G.frame % 2 ? 'hero2' : 'hero';
-  const px = S.x * TS, py = S.y * TS;
-  if (G.mode === 'combat' && G.hurtT > 0) { G.hurtT--; if (G.hurtT % 4 < 2) { /* blink */ } else drawSprite(ctx, walk, pal, px, py, 2, S.face === 'w'); }
-  else drawSprite(ctx, walk, pal, px, py, 2, S.face === 'w');
-  if (g[S.y][S.x] === '~') { ctx.fillStyle = 'rgba(42,122,208,.85)'; ctx.fillRect(px, py + 10, TS, 6); }
+  // actors, back to front
+  const actors = [];
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (g[y][x] === 'N') actors.push({ y:y * TS, d:() => drawNPC(x, y) });
+  for (const e of G.ents) actors.push({ y:posOf(e, e.x, e.y)[1] + (e.boss ? 1 : 0), d:() => drawEnt(e) });
+  actors.push({ y:posOf(G.hero, S.x, S.y)[1] + .5, d:drawHero });
+  actors.sort((a, b) => a.y - b.y).forEach(a => a.d());
+  const [px, py] = G.heroPx || [S.x * TS, S.y * TS];
   // darkness
   if (G.room.dark && !has('lantern')) {
     dctx.globalCompositeOperation = 'source-over';
@@ -1135,7 +1526,11 @@ function render() {
   // combat focus ring
   if (G.mode === 'combat' && G.cb) {
     const f = G.cb.foes[G.cb.t];
-    if (f && (G.t >> 3) % 2) { ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 1; ctx.strokeRect(f.e.x * TS - 1.5, f.e.y * TS - 1.5, TS + 3, TS + 3); }
+    if (f && (G.t >> 3) % 2) {
+      const [fx, fy] = posOf(f.e, f.e.x, f.e.y);
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 1;
+      if (f.e.boss) ctx.strokeRect(fx - 5.5, fy - 9.5, 27, 27); else ctx.strokeRect(fx - 1.5, fy - 1.5, TS + 3, TS + 3);
+    }
   }
 }
 function loop() { render(); requestAnimationFrame(loop); }
@@ -1232,7 +1627,7 @@ function drawMini() {
 
 let dlgResolve = null;
 function dialog(title, html, buttons = [{ label:'OK', v:true }], iconSrc) {
-  G.dlg++;
+  G.dlg++; G.held = [];
   $('#dlgT').innerHTML = (iconSrc ? `<img alt="" src="${iconSrc}">` : '') + title;
   $('#dlgB').innerHTML = html;
   const R = $('#dlgR'); R.innerHTML = '';
@@ -1334,7 +1729,7 @@ function entAt(x, y) { return G.ents.find(e => e.x === x && e.y === y); }
 function canAct() { return S && G.mode === 'play' && !G.busy && !G.dlg; }
 
 async function tryMove(d) {
-  if (!canAct()) return;
+  if (!canAct() || heroMoving()) return;
   S.face = d;
   const [dx, dy] = DIRV[d], nx = S.x + dx, ny = S.y + dy;
   if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) return;
@@ -1351,10 +1746,11 @@ async function tryMove(d) {
     if (ch === 'v') return trapStep(nx, ny, dx, dy);
     return step(nx, ny);
   }
+  G.hero.bump = { d, t0:now() }; G.nextMove = now() + 220;
   return bumpInto(ch, nx, ny, dx, dy);
 }
 function step(nx, ny) {
-  S.x = nx; S.y = ny; G.frame++; SFX.step();
+  startMove(G.hero, S.x, S.y); S.x = nx; S.y = ny; if (G.hero.stepN % 2) SFX.step();
   const ch = G.grid[ny][nx];
   pickup(ch, nx, ny);
   if (G.mode !== 'play') return;
@@ -1380,9 +1776,10 @@ function afterStep() {
     if (toward) { const ddx = Math.sign(S.x - e.x), ddy = Math.sign(S.y - e.y); d = Math.abs(S.x - e.x) > Math.abs(S.y - e.y) ? [ddx, 0] : [0, ddy]; }
     else d = pick([[1, 0], [-1, 0], [0, 1], [0, -1]]);
     const tx = e.x + d[0], ty = e.y + d[1];
-    if (tx === S.x && ty === S.y) { say(`The ${ENEMIES[e.kind].name.toLowerCase()} lunges at you!`, 'bad'); return startCombat(e, true); }
+    if (tx === S.x && ty === S.y) { e.dir = dirOf(d[0], d[1]); say(`The ${ENEMIES[e.kind].name.toLowerCase()} lunges at you!`, 'bad'); return startCombat(e, true); }
     const tc = G.grid[ty] && G.grid[ty][tx];
-    if ((tc === '.' || tc === ',' || tc === 'f') && !entAt(tx, ty)) { e.x = tx; e.y = ty; }
+    e.dir = dirOf(d[0], d[1]);
+    if ((tc === '.' || tc === ',' || tc === 'f') && !entAt(tx, ty)) { startMove(e, e.x, e.y); e.x = tx; e.y = ty; }
   }
 }
 function pickup(ch, x, y) {
@@ -1414,6 +1811,7 @@ async function bumpInto(ch, x, y, dx, dy) {
     }
     case 'N': {
       const npc = NPCS[G.npcAt[x + ',' + y]]; if (!npc) return;
+      G.npcDir[x + ',' + y] = OPP[S.face]; G.held = [];
       const txt = npc.talk(); if (typeof txt === 'string') await dialog(npc.name, `<p>${txt}</p>`);
       return;
     }
@@ -1467,8 +1865,8 @@ async function crossGap(x, y, dx, dy, kind) {
   }
   const v = await dialog('Obstacle', `<p>${what}${land ? '' : ' (There’s nowhere to land straight ahead.)'}</p>`, [{ label:'Never mind', v:null }, ...opts]);
   if (!v) return;
-  if (v === 'hook') { SFX.magic(); say('Thwip! Your hook bites and you zip across.', 'gold'); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
-  else if (v === 'glide') { S.energy--; SFX.magic(); say('You spread your feathers and glide across!', 'gold'); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
+  if (v === 'hook') { SFX.magic(); say('Thwip! Your hook bites and you zip across.', 'gold'); startMove(G.hero, S.x, S.y); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
+  else if (v === 'glide') { S.energy--; SFX.magic(); say('You spread your feathers and glide across!', 'gold'); startMove(G.hero, S.x, S.y); S.x = lx; S.y = ly; pickup(G.grid[ly][lx], lx, ly); afterStep(); }
   else if (v === 'swim') { S.energy--; G.swim = G.room.id; SFX.magic(); say('You dive in. (You can swim freely in this room.)', 'gold'); step(x, y); }
   else if (v === 'wand') {
     S.energy--; SFX.magic();
@@ -1499,7 +1897,7 @@ function pushBlock(x, y, dx, dy) {
   const from = G.grid[y][x];
   setMod(x, y, from === 'j' ? 'p' : '.');
   setMod(tx, ty, tc === 'p' ? 'j' : 'k');
-  SFX.bump(); S.x = x; S.y = y; G.frame++;
+  SFX.bump(); startMove(G.hero, S.x, S.y); S.x = x; S.y = y; G.hero.bump = null;
   if (tc === 'p') { SFX.door(); say('The block slides onto the plate. Click!'); }
   checkSolve();
 }
@@ -1539,7 +1937,7 @@ async function useDoor(d) {
 function useStairs(ch) {
   const R = G.room, to = ch === 'U' ? R.up : R.down;
   if (!to) return;
-  SFX.stairs();
+  SFX.stairs(); G.held = []; G.nextMove = now() + 250;
   const [x, y] = findTile(ROOMS[to], ch === 'U' ? 'D' : 'U');
   // step off the stairs so you don't bounce straight back
   loadRoom(to, x, y);
@@ -1716,9 +2114,11 @@ function foeName(f) { return f.def.name.replace(/^The /, 'the '); }
 
 async function startCombat(first, ambush) {
   if (G.mode === 'combat') return;
-  G.mode = 'combat'; G.busy = true;
+  G.mode = 'combat'; G.busy = true; G.held = [];
+  if (first.x !== S.x || first.y !== S.y) S.face = dirOf(first.x - S.x, first.y - S.y);
   const group = [first];
   if (!first.boss) for (const e of G.ents) if (e !== first && !e.hidden && !e.dormant && !e.boss && Math.max(Math.abs(e.x - S.x), Math.abs(e.y - S.y)) <= 1) group.push(e);
+  for (const e of group) e.dir = dirOf(S.x - e.x, S.y - e.y);
   G.cb = {
     round:0, t:0, capeTo:-1, boss:!!first.boss,
     foes: group.map(e => { const d = ENEMIES[e.kind]; return { e, def:d, hp:d.hp, max:d.hp, armor:d.armor || 0, stunTo:-1, frozenTo:-1, exposed:false, move:null }; })
@@ -1768,8 +2168,8 @@ function renderFoes() {
   const cb = G.cb, el = $('#foes'); el.innerHTML = '';
   cb.foes.forEach((f, i) => {
     const b = document.createElement('button'); b.className = 'foe'; b.setAttribute('aria-pressed', i === cb.t);
-    const c = document.createElement('canvas'); c.width = c.height = 16;
-    drawSprite(c.getContext('2d'), f.def.spr, SPAL[f.def.pal], 0, 0, 2);
+    const pa = portraitArt(f.e.kind), c = document.createElement('canvas'); c.width = pa.width; c.height = pa.height;
+    c.getContext('2d').drawImage(pa, 0, 0);
     let pips = ''; for (let k = 0; k < f.max; k++) pips += `<img alt="" src="${icon('heart', k < f.hp ? 'heart' : 'heartE')}">`;
     const tags = [];
     if (f.armor > 0) tags.push(`armour ×${f.armor} (–${f.armor}D)`);
@@ -1921,6 +2321,7 @@ const ACTS = {
   async attack(f, m) {
     if (f.def.boss && f.move === 'guard') { clog(`${f.def.name} is guarding — you can’t hurt it this round, but you’re safe too.`); return true; }
     let mod = rollMods(f, m) + (f.exposed ? 1 : 0) - (f.armor || 0);
+    S.face = dirOf(f.e.x - S.x, f.e.y - S.y); G.hero.bump = { d:S.face, t0:now() };
     const R = await heroRoll('power', mod, 'ATTACK');
     let r = R.r;
     if (f.elec) { r = 1; clog('ZZZAP! It’s electrified — your strike counts as a 1!', 'bad'); }
@@ -2122,10 +2523,27 @@ function buildCreate() {
   document.querySelectorAll('#cClothes .sw').forEach(b => b.onclick = () => { C.clothes = b.dataset.c; buildCreate(); });
   drawPreview();
 }
+/* the creation preview turns the hero through all four directions, walking */
+function animPreview() {
+  const c = $('#pv'), x = c.getContext('2d'), k = Math.floor(performance.now() / 160);
+  x.imageSmoothingEnabled = false;
+  x.fillStyle = '#6abe50'; x.fillRect(0, 0, 16, 16);
+  x.fillStyle = 'rgba(10,8,20,.26)'; x.fillRect(3, 14, 10, 2);
+  const dir = ['s', 'e', 'n', 'w'][Math.floor(k / 8) % 4], frame = [1, 0, 3, 0][k % 4];
+  x.drawImage(humanoid(heroLook({ kin:C.kin, hair:C.hair, clothes:C.clothes }), dir, frame), 0, 0);
+}
+function animTitle() {
+  const c = $('#titleArt'), x = c.getContext('2d'), k = Math.floor(performance.now() / 160);
+  x.imageSmoothingEnabled = false; x.clearRect(0, 0, 96, 32);
+  x.fillStyle = 'rgba(10,8,20,.35)'; x.fillRect(11, 28, 10, 2); x.fillRect(75, 28, 10, 2);
+  x.drawImage(humanoid(heroLook({ kin:'sylph', hair:'#f2d03a', clothes:'#3aa04a' }), 'e', [1, 0, 3, 0][k % 4]), 8, 14);
+  x.drawImage(obj('shard'), 40, 10 + (k % 4 < 2 ? 0 : 1));
+  x.drawImage(creature('slime', (k >> 1) % 2), 72, 14);
+}
+setInterval(() => { if (!$('#scrCreate').hidden) animPreview(); if (!$('#scrTitle').hidden) animTitle(); }, 80);
 function drawPreview() {
   const c = $('#pv'), x = c.getContext('2d');
-  x.fillStyle = '#6abe50'; x.fillRect(0, 0, 16, 16);
-  drawSprite(x, 'hero', heroPal({ kin:C.kin, hair:C.hair, clothes:C.clothes }), 0, 0, 2);
+  animPreview();
   const fa = finalAttrs();
   $('#pvName').textContent = (C.name || 'Hero').toUpperCase();
   $('#pvLine').innerHTML = `${KINS[C.kin].name} · ${KINS[C.kin].weapon}<br>${ITEMS[C.item].name}<br>Power ${fa.power} · Nerve ${fa.nerve} · Wits ${fa.wits}`;
@@ -2156,13 +2574,7 @@ function show(which) {
   if (which === 'title') { $('#bCont').hidden = !loadSave(); drawTitleArt(); }
   if (which === 'create') buildCreate();
 }
-function drawTitleArt() {
-  const c = $('#titleArt'), x = c.getContext('2d');
-  x.clearRect(0, 0, 96, 32);
-  drawSprite(x, 'hero', heroPal({ kin:'sylph', hair:'#f2d03a', clothes:'#3aa04a' }), 8, 8, 2);
-  drawSprite(x, 'shard', SPAL.shard, 40, 8, 2);
-  drawSprite(x, 'slime', SPAL.slime, 72, 8, 2);
-}
+function drawTitleArt() { animTitle(); }
 function rulesHTML() {
   return `
   <p><b>Action rolls.</b> When you do something risky, roll a number of four-sided dice equal to the attribute that fits — <b>POWER</b> (attack, smash, hurl), <b>NERVE</b> (defend, dodge, escape) or <b>WITS</b> (inspect, shoot, talk). Only the <b>highest die</b> counts:</p>
@@ -2196,15 +2608,17 @@ $('#bSpecial').onclick = fieldSpecial;
 $('#bAct').onclick = () => tryMove(S.face);
 document.querySelectorAll('#acts .btn').forEach(b => b.onclick = () => act(b.dataset.a));
 
-let holdT = null;
+/* held directions: the newest one wins, and the hero keeps walking until it's released */
+const hold = d => { G.held = G.held.filter(x => x !== d); G.held.push(d); if (!heroMoving()) tryMove(d); };
+const release = d => { G.held = G.held.filter(x => x !== d); };
 document.querySelectorAll('.pad [data-d]').forEach(b => {
   const d = b.dataset.d;
-  const start = e => { e.preventDefault(); tryMove(d); clearInterval(holdT); holdT = setInterval(() => tryMove(d), 170); };
-  const stop = () => clearInterval(holdT);
-  b.addEventListener('pointerdown', start); b.addEventListener('pointerup', stop); b.addEventListener('pointerleave', stop); b.addEventListener('pointercancel', stop);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); hold(d); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => release(d));
 });
 const KEYMAP = { ArrowUp:'n', ArrowDown:'s', ArrowLeft:'w', ArrowRight:'e', w:'n', s:'s', a:'w', d:'e', W:'n', S:'s', A:'w', D:'e' };
-let lastKey = 0;
+document.addEventListener('keyup', e => { const d = KEYMAP[e.key]; if (d) release(d); });
+window.addEventListener('blur', () => { G.held = []; });
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   if (!$('#modal').hidden) {
@@ -2218,7 +2632,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   const d = KEYMAP[e.key];
-  if (d) { e.preventDefault(); const now = performance.now(); if (now - lastKey < 110) return; lastKey = now; tryMove(d); return; }
+  if (d) { e.preventDefault(); if (!e.repeat) hold(d); return; }
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tryMove(S.face); }
   if (e.key === 'i' || e.key === 'I') fieldInspect();
   if (e.key === 'k' || e.key === 'K') fieldSpecial();
